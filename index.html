@@ -20,7 +20,7 @@ button{cursor:pointer}.primary{background:var(--pink);color:#fff;border:0;border
 </style>
 </head>
 <body>
-<section id="loginScreen" class="hidden">
+<section id="loginScreen">
 <h1>Pinks & Blues International School</h1>
 <p>Sign in with the email address already registered for your school platform. New account registration is disabled.</p>
 <form id="loginForm"><label for="loginEmail">Email address</label><input id="loginEmail" type="email" autocomplete="email" placeholder="you@example.com" required><label for="loginPassword">Password</label><input id="loginPassword" type="password" autocomplete="current-password" minlength="6" placeholder="Your school account password" required><button class="primary" id="loginButton" type="submit">Sign in with password</button></form><p>If your existing account does not have a password yet, it must be set securely in Supabase before this login will work. Do not share your password with anyone.</p>
@@ -33,7 +33,7 @@ button{cursor:pointer}.primary{background:var(--pink);color:#fff;border:0;border
 <div id="content"></div><div class="note"><b>Current status:</b> Password sign-in, student records, class selection, and parent/guardian records are connected to Supabase. Student registration and editing have been tested. Guardian editing, deletion permissions, and broader security checks still need testing. Other modules remain demo/local.</div><div class="note"><b>Important:</b> Do not enter real pupil, family, staff or financial information yet. Students and Parents & Guardians are connected to the database, but comprehensive security and permissions testing is not yet complete. Other modules still use demo/local data.</div>
 </main></div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="document.getElementById('loginMessage').textContent='The sign-in service could not load. Check your internet connection and reload.'"></script>
 <script>
 const SUPABASE_URL='https://lpxelgjrihgwqflzqkpa.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_z9KwkgfHvm2o8YBQOdhteg_plMv93h3';
@@ -322,6 +322,6 @@ async function initializeAuth(){
  if(error){await showLogin('Could not check your session: '+error.message);return;}
  if(data.session)await enterPlatform(data.session);else await showLogin();
 }
-initializeAuth();
+initializeAuth().catch(error=>{const msg=document.getElementById("loginMessage");if(msg)msg.textContent="Sign-in initialization failed: "+(error?.message||"Please reload the page.");console.error("School platform initialization error",error);});
 </script>
 </body></html>
