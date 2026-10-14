@@ -171,8 +171,16 @@ async function render(page){
   return;
  }
  if(page==='Dashboard'){
-  const {count:liveCount,error:countError}=await supabaseClient.from('students').select('student_id',{count:'exact',head:true}).eq('school_id',SCHOOL_ID);const st=countError?'Unavailable':(liveCount??0),sf=(data.Staff||[]).length,bill=(data['Student Billing']||[]).reduce((n,r)=>n+(+r['Bill amount (GHS)']||0),0),paid=(data['Student Billing']||[]).reduce((n,r)=>n+(+r['Paid (GHS)']||0),0);
-  root.innerHTML=`<div class="cards"><div class="card"><div class="accent"></div><div class="label">Student records</div><div class="metric">${st}</div><span class="label">Live Supabase records</span></div><div class="card"><div class="accent" style="background:var(--blue)"></div><div class="label">Staff records</div><div class="metric">${sf}</div><span class="label">Demo records</span></div><div class="card"><div class="accent" style="background:#59a58b"></div><div class="label">Bills recorded</div><div class="metric">GH₵ ${bill.toFixed(2)}</div></div><div class="card"><div class="accent" style="background:#d7a64a"></div><div class="label">Payments recorded</div><div class="metric">GH₵ ${paid.toFixed(2)}</div></div></div><div class="panel"><h2>Platform modules</h2><p class="sub">Core modules requested for the multi-school system.</p><div class="cards">${modules.slice(1,9).map(m=>`<div class="card"><b>${esc(m)}</b><p class="label">${esc(desc[m])}</p></div>`).join('')}</div></div>`;return;
+  root.innerHTML='<div class="panel"><h2>Live school dashboard</h2><p class="sub">Loading verified database totals…</p></div>';
+  const now=new Date(),date=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');
+  const checks=[['Students','students','student_id',false],['Staff','pbis_staff','staff_id',false],['Guardians','pbis_guardians','guardian_id',false],['Student attendance today','pbis_student_attendance','attendance_id',true],['Staff attendance today','pbis_staff_attendance','attendance_id',true]];
+  const results=await Promise.all(checks.map(async([label,table,col,daily])=>{
+    let q=supabaseClient.from(table).select(col,{count:'exact',head:true}).eq('school_id',SCHOOL_ID);
+    if(daily)q=q.eq('attendance_date',date);
+    const {count,error}=await q;return {label,count,error};
+  }));
+  root.innerHTML=`<div class="panel"><h2>Live school dashboard</h2><p class="sub">Figures below come from Supabase, not demonstration records. Attendance is for ${date}.</p></div><div class="cards">${results.map(x=>`<div class="card"><div class="accent"></div><div class="label">${esc(x.label)}</div><div class="metric">${x.error?'—':x.count??0}</div><p class="sub">${x.error?'Unavailable: '+esc(x.error.message):'Live database total'}</p></div>`).join('')}</div><div class="panel"><h2>Financial records</h2><p class="sub">Billing, payments and arrears are not yet connected to the live database. No financial figures are shown until verified.</p></div>`;
+  return;
  }
  const cols=fields[page]||['Name','Date','Notes'],rows=data[page]||[];
  root.innerHTML=`<div class="panel"><h2>${esc(page)} records</h2><p class="sub">Add a demo record with the button above.</p>${rows.length?`<div class="tablewrap"><table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}<th>Action</th></tr></thead><tbody>${rows.map((r,i)=>`<tr>${cols.map(c=>`<td>${esc(r[c])}</td>`).join('')}<td><button class="secondary" data-delete-page="${esc(page)}" data-delete-index="${i}">Delete</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">No records yet. Tap “+ Add record” to add the first demo record.</div>'}</div>`;
