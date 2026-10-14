@@ -23,14 +23,14 @@ button{cursor:pointer}.primary{background:var(--pink);color:#fff;border:0;border
 <section id="loginScreen" class="hidden">
 <h1>Pinks & Blues International School</h1>
 <p>Sign in with the email address already registered for your school platform. New account registration is disabled.</p>
-<form id="loginForm"><label for="loginEmail">Email address</label><input id="loginEmail" type="email" autocomplete="email" placeholder="you@example.com" required><button class="primary" id="loginButton" type="submit">Send secure sign-in link</button></form>
+<form id="loginForm"><label for="loginEmail">Email address</label><input id="loginEmail" type="email" autocomplete="email" placeholder="you@example.com" required><label for="loginPassword">Password</label><input id="loginPassword" type="password" autocomplete="current-password" minlength="6" placeholder="Your school account password" required><button class="primary" id="loginButton" type="submit">Sign in with password</button></form><p>If your existing account does not have a password yet, it must be set securely in Supabase before this login will work. Do not share your password with anyone.</p>
 <p id="loginMessage" role="status" aria-live="polite"></p>
 </section>
 <div id="appShell" class="hidden">
 <header><div class="brand">PINKS & BLUES<small>School Management Platform · Rising Beyond Limits</small></div><div class="actions"><span id="signedInLabel">Signed in</span><button class="secondary" id="signOutButton">Sign out</button></div></header>
 <div class="layout"><aside><nav id="nav"></nav></aside><main>
 <div class="topline"><div><h1 id="title">Dashboard</h1><div class="sub" id="subtitle">Overview of school operations.</div></div><div class="actions"><span class="status" id="connectionStatus">Checking Supabase setup…</span><button class="secondary" id="export">Export demo data</button><button class="primary" id="add" hidden>+ Add record</button></div></div>
-<div id="content"></div><div class="note"><b>Current status:</b> Email sign-in and administrator profile checks are now in the code. The Supabase security policies must be applied from SUPABASE_SECURITY_SETUP.md before profile verification and student database access can work. Other modules remain demo/local.</div><div class="note"><b>Important:</b> Do not enter real pupil, family, staff or financial information yet. Only the Students module is connected to the database, and the sign-in, row-level security and live save/delete actions still need end-to-end testing after the SQL setup is applied.</div>
+<div id="content"></div><div class="note"><b>Current status:</b> Password sign-in and administrator profile checks are in the code. Supabase security policies have been applied but must still be tested with a signed-in account. Other modules remain demo/local.</div><div class="note"><b>Important:</b> Do not enter real pupil, family, staff or financial information yet. Only the Students module is connected to the database, and the sign-in, row-level security and live save/delete actions still need end-to-end testing after the SQL setup is applied.</div>
 </main></div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -119,11 +119,16 @@ $('loginForm').onsubmit=async e=>{
  e.preventDefault();
  if(!supabaseClient){$('loginMessage').textContent='The secure sign-in service could not start. Refresh the page and try again.';return;}
  const email=$('loginEmail').value.trim();
- const btn=$('loginButton');btn.disabled=true;btn.textContent='Sending…';
- $('loginMessage').textContent='Requesting a secure sign-in link…';
- const {error}=await supabaseClient.auth.signInWithOtp({email,options:{shouldCreateUser:false,emailRedirectTo:window.location.origin}});
- btn.disabled=false;btn.textContent='Send secure sign-in link';
- $('loginMessage').textContent=error?'Sign-in link could not be sent: '+error.message:'If this email is registered and email sign-in is enabled, check your inbox for a secure sign-in link. Open it on this device to continue.';
+ const password=$('loginPassword').value;
+ const btn=$('loginButton');btn.disabled=true;btn.textContent='Signing in…';
+ $('loginMessage').textContent='Checking your email and password…';
+ try{
+  const {data:authData,error}=await supabaseClient.auth.signInWithPassword({email,password});
+  if(error){$('loginMessage').textContent='Could not sign in: '+error.message+'. If you have never set a password, you must set one securely in Supabase first.';return;}
+  if(authData?.session)await enterPlatform(authData.session);
+  else $('loginMessage').textContent='Sign-in was not completed. Please check your account settings.';
+ }catch(error){$('loginMessage').textContent='Sign-in could not complete: '+(error?.message||'Please try again later.');}
+ finally{btn.disabled=false;btn.textContent='Sign in with password';}
 };
 $('signOutButton').onclick=async()=>{if(supabaseClient)await supabaseClient.auth.signOut();currentProfile=null;await showLogin('You have signed out.');};
 async function initializeAuth(){
