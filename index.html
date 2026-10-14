@@ -4,6 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Pinks & Blues School Platform</title>
 <style>
+#loginScreen{max-width:460px;margin:8vh auto;padding:24px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 12px 35px #142b4a12}#loginScreen h1{font-size:24px;color:var(--navy)}#loginScreen p{line-height:1.5;color:var(--muted);font-size:14px}#loginScreen input{width:100%;padding:12px;border:1px solid #d8e0eb;border-radius:8px;font:inherit;margin:10px 0}#loginMessage{font-size:13px;margin-top:12px;overflow-wrap:anywhere}.hidden{display:none!important}
 :root{--navy:#142b4a;--pink:#d85b91;--blue:#4b86c6;--ink:#233044;--muted:#6c7788;--line:#e5eaf1;--bg:#f5f7fb}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:system-ui,Arial,sans-serif;color:var(--ink)}
 header{background:var(--navy);color:#fff;padding:16px 20px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}.brand{font-weight:800}.brand small{display:block;font-weight:400;font-size:12px;margin-top:3px}header span{font-size:12px;border:1px solid #ffffff55;border-radius:20px;padding:7px 10px}
@@ -19,16 +20,25 @@ button{cursor:pointer}.primary{background:var(--pink);color:#fff;border:0;border
 </style>
 </head>
 <body>
-<header><div class="brand">PINKS & BLUES<small>School Management Platform · Rising Beyond Limits</small></div><span>INTERFACE FOUNDATION · DEMO</span></header>
+<section id="loginScreen" class="hidden">
+<h1>Pinks & Blues International School</h1>
+<p>Sign in with the email address already registered for your school platform. New account registration is disabled.</p>
+<form id="loginForm"><label for="loginEmail">Email address</label><input id="loginEmail" type="email" autocomplete="email" placeholder="you@example.com" required><button class="primary" id="loginButton" type="submit">Send secure sign-in link</button></form>
+<p id="loginMessage" role="status" aria-live="polite"></p>
+</section>
+<div id="appShell" class="hidden">
+<header><div class="brand">PINKS & BLUES<small>School Management Platform · Rising Beyond Limits</small></div><div class="actions"><span id="signedInLabel">Signed in</span><button class="secondary" id="signOutButton">Sign out</button></div></header>
 <div class="layout"><aside><nav id="nav"></nav></aside><main>
 <div class="topline"><div><h1 id="title">Dashboard</h1><div class="sub" id="subtitle">Overview of school operations.</div></div><div class="actions"><span class="status" id="connectionStatus">Checking Supabase setup…</span><button class="secondary" id="export">Export demo data</button><button class="primary" id="add" hidden>+ Add record</button></div></div>
 <div id="content"></div><div class="note"><b>Connection update:</b> The Students section is being prepared for live Supabase reads and writes. Other modules remain demo/local until individually connected. </div><div class="note"><b>Important:</b> This is still a demo interface. Supabase client setup is included, but login, live database reads/writes, invitation-only registration, role permissions and school-by-school data isolation are not implemented or tested. Demo records are saved only in this browser/device. Do not enter real pupil, family, staff or financial information yet.</div>
 </main></div>
+</div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const SUPABASE_URL='https://lpxelgjrihgwqflzqkpa.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_z9KwkgfHvm2o8YBQOdhteg_plMv93h3';
 let supabaseClient=null;
+let currentProfile=null;
 try{
  if(window.supabase&&SUPABASE_URL.startsWith('https://')&&SUPABASE_PUBLISHABLE_KEY.startsWith('sb_publishable_')){
   supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
@@ -82,6 +92,47 @@ $('nav').onclick=e=>{const b=e.target.closest('[data-page]');if(b)go(b.dataset.p
 $('content').onclick=async e=>{const live=e.target.closest('[data-live-delete]');if(live){if(!confirm('Delete this student from the live database? This cannot be undone.'))return;const row=liveStudents[Number(live.dataset.liveDelete)];const id=row?.student_id??row?.id;if(!id){alert('No student ID column was found. Nothing was deleted.');return;}const key=row?.student_id!==undefined?'student_id':'id';const {error}=await supabaseClient.from('students').delete().eq(key,id).eq('school_id',SCHOOL_ID);if(error){alert('Student was not deleted: '+error.message);return;}render('Students');return;}const b=e.target.closest('[data-delete-page]');if(b)delRow(b.dataset.deletePage,Number(b.dataset.deleteIndex))};
 $('add').onclick=addForm;
 $('export').onclick=()=>{const a=document.createElement('a'),u=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.href=u;a.download='pinks-blues-demo-data.json';a.click();URL.revokeObjectURL(u)};
-go('Dashboard');
+async function showLogin(message=''){
+ $('appShell').classList.add('hidden');$('loginScreen').classList.remove('hidden');
+ $('loginMessage').textContent=message;
+}
+async function enterPlatform(session){
+ if(!session?.user){await showLogin();return;}
+ $('loginMessage').textContent='Checking your school account…';
+ const {data:profile,error}=await supabaseClient.from('profiles').select('user_id,school_id,full_name,email,role').eq('user_id',session.user.id).maybeSingle();
+ if(error){await showLogin('Your account signed in, but the profile could not be verified. Please apply the database security setup file in the GitHub repository, then try again. Details: '+error.message);return;}
+ if(!profile){await showLogin('This email is not linked to a school staff profile. Ask the platform owner to set up your profile.');return;}
+ const role=String(profile.role||'').trim().toLowerCase();
+ const allowed=['platform owner','school administrator','administrator'];
+ if(String(profile.school_id||'')!==SCHOOL_ID||!allowed.includes(role)){
+  await supabaseClient.auth.signOut();
+  await showLogin('Access denied. This account does not have an authorized administrator role for Pinks & Blues International School.');
+  return;
+ }
+ currentProfile=profile;
+ $('signedInLabel').textContent=profile.full_name||profile.email||session.user.email;
+ $('loginScreen').classList.add('hidden');$('appShell').classList.remove('hidden');
+ $('connectionStatus').textContent='Signed in · school profile verified';
+ go('Dashboard');
+}
+$('loginForm').onsubmit=async e=>{
+ e.preventDefault();
+ if(!supabaseClient){$('loginMessage').textContent='The secure sign-in service could not start. Refresh the page and try again.';return;}
+ const email=$('loginEmail').value.trim();
+ const btn=$('loginButton');btn.disabled=true;btn.textContent='Sending…';
+ $('loginMessage').textContent='Requesting a secure sign-in link…';
+ const {error}=await supabaseClient.auth.signInWithOtp({email,options:{shouldCreateUser:false,emailRedirectTo:window.location.origin}});
+ btn.disabled=false;btn.textContent='Send secure sign-in link';
+ $('loginMessage').textContent=error?'Sign-in link could not be sent: '+error.message:'If this email is registered and email sign-in is enabled, check your inbox for a secure sign-in link. Open it on this device to continue.';
+};
+$('signOutButton').onclick=async()=>{if(supabaseClient)await supabaseClient.auth.signOut();currentProfile=null;await showLogin('You have signed out.');};
+async function initializeAuth(){
+ if(!supabaseClient){await showLogin('Secure sign-in is unavailable because the Supabase client could not start.');return;}
+ await showLogin('Checking your sign-in session…');
+ const {data,error}=await supabaseClient.auth.getSession();
+ if(error){await showLogin('Could not check your session: '+error.message);return;}
+ if(data.session)await enterPlatform(data.session);else await showLogin();
+}
+initializeAuth();
 </script>
 </body></html>
