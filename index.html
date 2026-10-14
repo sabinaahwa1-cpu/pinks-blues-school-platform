@@ -88,9 +88,46 @@ async function render(page){
   return;
  }
  if(page==='Attendance'){
+  const today=new Date(), localDate=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
+  root.innerHTML=`<div class="panel"><h2>Student Attendance · Live database</h2><p class="sub">Choose a class and date to mark attendance.</p><div class="formrow"><label>Class <select id="pupilAttendanceClass"><option value="">Select class</option></select></label><label>Date <input id="pupilAttendanceDate" type="date" value="${localDate}"></label></div><div id="pupilAttendanceRegister" style="margin-top:16px">Select a class to begin.</div></div><div id="staffAttendanceMount"></div>`;
+  const classReady=await loadSchoolClasses();
+  if(!classReady){$('pupilAttendanceRegister').textContent='Class list unavailable. Please try again later.';}
+  else $('pupilAttendanceClass').innerHTML='<option value="">Select class</option>'+schoolClasses.map(x=>`<option value="${esc(x.class_id)}">${esc(x.class_name)}</option>`).join('');
+  const loadPupilAttendance=async()=>{
+    const cls=$('pupilAttendanceClass').value,date=$('pupilAttendanceDate').value,box=$('pupilAttendanceRegister');
+    if(!cls||!date){box.textContent='Select a class and date to begin.';return;}
+    box.textContent='Loading class register…';
+    const [studentsResult,attendanceResult]=await Promise.all([
+      supabaseClient.from('students').select('student_id,student_number,first_name,last_name').eq('school_id',SCHOOL_ID).eq('pbis_class_id',cls).order('last_name').limit(300),
+      supabaseClient.from('pbis_student_attendance').select('attendance_id,student_id,attendance_status').eq('school_id',SCHOOL_ID).eq('attendance_date',date).limit(1000)
+    ]);
+    if(studentsResult.error||attendanceResult.error){box.textContent='Unable to load register: '+(studentsResult.error?.message||attendanceResult.error?.message);return;}
+    const pupils=studentsResult.data||[],records=attendanceResult.data||[];
+    const statuses=[['present','Present'],['absent','Absent'],['late','Late'],['excused','Excused']];
+    const totals=()=>{const count=Object.fromEntries(statuses.map(([k])=>[k,0]));pupils.forEach(p=>{const v=records.find(a=>a.student_id===p.student_id)?.attendance_status;if(v in count)count[v]++;});return count;};
+    const summary=()=>{const t=totals();$('pupilAttendanceTotals').textContent=`Present: ${t.present} · Absent: ${t.absent} · Late: ${t.late} · Excused: ${t.excused} · Unmarked: ${pupils.length-Object.values(t).reduce((a,b)=>a+b,0)}`;};
+    box.innerHTML=`<p id="pupilAttendanceTotals" class="sub"></p><div style="display:grid;gap:12px">${pupils.map(p=>{const saved=records.find(a=>a.student_id===p.student_id);return `<div style="border:1px solid #d8e0eb;border-radius:12px;padding:14px"><strong>${esc(p.first_name+' '+p.last_name)}</strong><p class="sub" style="margin:4px 0 12px">${esc(p.student_number||'')}</p><div style="display:flex;flex-wrap:wrap;gap:10px"><select data-pupil-status="${esc(p.student_id)}" style="padding:11px;flex:1;min-width:145px"><option value="">Not marked</option>${statuses.map(([v,label])=>`<option value="${v}" ${saved?.attendance_status===v?'selected':''}>${label}</option>`).join('')}</select><button class="primary" data-pupil-save="${esc(p.student_id)}">Save</button></div></div>`}).join('')}</div><p id="pupilAttendanceFeedback" class="sub" role="status"></p>${pupils.length?'':'<p>No students are assigned to this class yet.</p>'}`;
+    summary();
+    box.querySelectorAll('[data-pupil-save]').forEach(btn=>btn.onclick=async()=>{
+      const id=btn.dataset.pupilSave,sel=box.querySelector('[data-pupil-status="'+id+'"]'),status=sel.value;
+      if(!status){alert('Select an attendance status first.');return;}
+      btn.disabled=true;btn.textContent='Saving…';
+      const old=records.find(a=>a.student_id===id);
+      const q=old?supabaseClient.from('pbis_student_attendance').update({attendance_status:status}).eq('attendance_id',old.attendance_id).eq('school_id',SCHOOL_ID):supabaseClient.from('pbis_student_attendance').insert({school_id:SCHOOL_ID,student_id:id,attendance_date:date,attendance_status:status});
+      const {data,error}=await q.select('attendance_id,student_id,attendance_status').single();
+      btn.disabled=false;btn.textContent='Save';
+      if(error||!data){alert('Attendance not saved: '+(error?.message||'No record returned'));return;}
+      if(old)Object.assign(old,data);else records.push(data);
+      summary();$('pupilAttendanceFeedback').textContent='Saved '+status+' for '+(pupils.find(p=>p.student_id===id)?.first_name||'student')+' on '+date+'.';
+    });
+  };
+  $('pupilAttendanceClass').onchange=loadPupilAttendance;
+  $('pupilAttendanceDate').onchange=loadPupilAttendance;
+ }
+ if(page==='Attendance'){
   root.innerHTML='<div class="panel"><h2>Staff Attendance · Live database</h2><p>Loading attendance…</p></div>';
   const today=new Date();const localDate=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
-  root.innerHTML=`<div class="panel"><h2>Staff Attendance · Live database</h2><p class="sub">Choose a date, then select a status for each staff member. Changes save individually to Supabase.</p><label>Attendance date <input id="attendanceDate" type="date" value="${localDate}"></label><div id="attendanceRegister" style="margin-top:16px">Loading…</div></div>`;
+  root.insertAdjacentHTML('beforeend',`<div class="panel"><h2>Staff Attendance · Live database</h2><p class="sub">Choose a date, then select a status for each staff member. Changes save individually to Supabase.</p><label>Attendance date <input id="attendanceDate" type="date" value="${localDate}"></label><div id="attendanceRegister" style="margin-top:16px">Loading…</div></div>`);
   const loadRegister=async()=>{
     const date=$('attendanceDate')?.value;if(!date)return;
     const box=$('attendanceRegister');box.innerHTML='<p>Loading staff register…</p>';
@@ -141,7 +178,7 @@ async function render(page){
  root.innerHTML=`<div class="panel"><h2>${esc(page)} records</h2><p class="sub">Add a demo record with the button above.</p>${rows.length?`<div class="tablewrap"><table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}<th>Action</th></tr></thead><tbody>${rows.map((r,i)=>`<tr>${cols.map(c=>`<td>${esc(r[c])}</td>`).join('')}<td><button class="secondary" data-delete-page="${esc(page)}" data-delete-index="${i}">Delete</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">No records yet. Tap “+ Add record” to add the first demo record.</div>'}</div>`;
 }
 function addForm(){
- if($('title').textContent==='Attendance'){document.getElementById('attendanceDate')?.scrollIntoView({behavior:'smooth',block:'center'});return;}
+ if($('title').textContent==='Attendance'){document.getElementById('pupilAttendanceClass')?.scrollIntoView({behavior:'smooth',block:'center'});return;}
  if($('title').textContent==='Staff'){staffForm();return;}
  if($('title').textContent==='Parents & Guardians'){guardianForm();return;}
  const page=$('title').textContent,cols=fields[page]||['Name','Date','Notes'];
