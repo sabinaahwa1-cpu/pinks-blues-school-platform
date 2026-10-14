@@ -103,7 +103,7 @@ async function enterPlatform(session){
  if(error){await showLogin('Your account signed in, but the profile could not be verified. Please apply the database security setup file in the GitHub repository, then try again. Details: '+error.message);return;}
  if(!profile){await showLogin('This email is not linked to a school staff profile. Ask the platform owner to set up your profile.');return;}
  const role=String(profile.role||'').trim().toLowerCase();
- const allowed=['platform owner','school administrator','administrator'];
+ const allowed=['platform_owner','platform owner','school administrator','administrator'];
  if(String(profile.school_id||'')!==SCHOOL_ID||!allowed.includes(role)){
   await supabaseClient.auth.signOut();
   await showLogin('Access denied. This account does not have an authorized administrator role for Pinks & Blues International School.');
