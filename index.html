@@ -61,6 +61,7 @@ function classOptions(selected=''){return '<option value="">Select class (option
 
 let liveStudents=[];
 let liveGuardians=[],guardianStudents=[];
+let liveStaff=[];
 async function render(page){
  const root=$('content');
  if(page==='Students'){
@@ -86,6 +87,15 @@ async function render(page){
   $('guardianSearch').oninput=e=>{const q=e.target.value.toLowerCase();root.querySelectorAll('tbody tr').forEach(tr=>tr.hidden=!tr.textContent.toLowerCase().includes(q));};
   return;
  }
+ if(page==='Staff'){
+  root.innerHTML='<div class="panel"><h2>Staff · Live database</h2><p>Loading staff…</p></div>';
+  const [staffResult,classesOk]=await Promise.all([supabaseClient.from('pbis_staff').select('*').eq('school_id',SCHOOL_ID).order('created_at',{ascending:false}).limit(200),loadSchoolClasses()]);
+  if(staffResult.error){root.innerHTML='<div class="panel"><h2>Staff</h2><p>'+esc(staffResult.error.message)+'</p></div>';return;}
+  liveStaff=staffResult.data||[];
+  root.innerHTML=`<div class="panel"><h2>Staff · Live database</h2><input id="staffSearch" placeholder="Search staff by name, role or number" style="padding:11px;width:100%;margin:12px 0;border:1px solid #d8e0eb;border-radius:8px"><div class="tablewrap"><table><thead><tr><th>Staff number</th><th>Name</th><th>Position</th><th>Class</th><th>Status</th><th>Action</th></tr></thead><tbody>${liveStaff.map((s,i)=>`<tr><td>${esc(s.staff_number||'')}</td><td>${esc(s.full_name)}</td><td>${esc(s.position)}</td><td>${esc(schoolClasses.find(c=>c.class_id===s.assigned_class_id)?.class_name||'Not assigned')}</td><td>${esc(s.employment_status)}</td><td><button class="secondary" data-staff-edit="${i}">Edit</button></td></tr>`).join('')}</tbody></table></div>${liveStaff.length?'':'<p>No staff records yet.</p>'}</div>`;
+  $('staffSearch').oninput=e=>{const q=e.target.value.toLowerCase();root.querySelectorAll('tbody tr').forEach(tr=>tr.hidden=!tr.textContent.toLowerCase().includes(q));};
+  return;
+ }
  if(page==='Student ID Cards'){
   if(!supabaseClient){root.innerHTML='<div class="panel">Database unavailable.</div>';return;}
   root.innerHTML='<div class="panel"><h2>Student ID Cards</h2><p class="sub">Loading live student numbers…</p></div>';
@@ -102,6 +112,7 @@ async function render(page){
  root.innerHTML=`<div class="panel"><h2>${esc(page)} records</h2><p class="sub">Add a demo record with the button above.</p>${rows.length?`<div class="tablewrap"><table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}<th>Action</th></tr></thead><tbody>${rows.map((r,i)=>`<tr>${cols.map(c=>`<td>${esc(r[c])}</td>`).join('')}<td><button class="secondary" data-delete-page="${esc(page)}" data-delete-index="${i}">Delete</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">No records yet. Tap “+ Add record” to add the first demo record.</div>'}</div>`;
 }
 function addForm(){
+ if($('title').textContent==='Staff'){staffForm();return;}
  if($('title').textContent==='Parents & Guardians'){guardianForm();return;}
  const page=$('title').textContent,cols=fields[page]||['Name','Date','Notes'];
  if(page==='Students'){
@@ -126,6 +137,17 @@ async function guardianForm(index=null){
  $('entry').scrollIntoView({block:'start'});$('guardianCancel').onclick=()=>$('entry').remove();
  $('guardianEntry').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);const p={school_id:SCHOOL_ID,student_id:String(f.get('student_id')),full_name:String(f.get('full_name')||'').trim(),relationship:String(f.get('relationship')),phone:String(f.get('phone')||'')||null,alternate_phone:String(f.get('alternate_phone')||'')||null,email:String(f.get('email')||'')||null,emergency_contact:f.has('emergency_contact')};const btn=e.target.querySelector('button[type=submit]');btn.disabled=true;const q=g?supabaseClient.from('pbis_guardians').update(p).eq('guardian_id',g.guardian_id).eq('school_id',SCHOOL_ID):supabaseClient.from('pbis_guardians').insert(p);const {data,error}=await q.select('guardian_id');if(error||!data?.length){alert('Not saved: '+(error?.message||'No changes'));btn.disabled=false;return;}alert('Guardian saved successfully.');render('Parents & Guardians');};
 }
+async function staffForm(index=null){
+ const s=index===null?null:liveStaff[index];
+ await loadSchoolClasses();
+ $('entry')?.remove();
+ const positions=['Creche Teacher','Nursery Teacher','KG Teacher','Primary Teacher','JHS Teacher','Teaching Assistant','Headteacher','Administrator','Kitchen Staff','Cleaner','Security','Other'];
+ const options=positions.map(p=>`<option value="${esc(p)}" ${s?.position===p?'selected':''}>${esc(p)}</option>`).join('')+(s?.position&&!positions.includes(s.position)?`<option selected value="${esc(s.position)}">${esc(s.position)}</option>`:'');
+ const statuses=['active','on_leave','inactive','resigned'];
+ $('content').insertAdjacentHTML('afterbegin',`<div class="panel" id="entry"><h2>${s?'Edit':'Add'} staff member</h2><form id="staffEntry"><div class="formrow"><label>Staff number <input name="staff_number" value="${esc(s?.staff_number||'')}" placeholder="Optional unique staff number"></label><label>Full name <input name="full_name" required value="${esc(s?.full_name||'')}"></label><label>Position <select name="position">${options}</select></label><label>Assigned class <select name="assigned_class_id">${classOptions(s?.assigned_class_id||'')}</select></label><label>Phone <input name="phone" type="tel" value="${esc(s?.phone||'')}"></label><label>Email <input name="email" type="email" value="${esc(s?.email||'')}"></label><label>Joining date <input name="date_joined" type="date" value="${esc(s?.date_joined||'')}"></label><label>Employment status <select name="employment_status">${statuses.map(v=>`<option value="${v}" ${(s?.employment_status||'active')===v?'selected':''}>${v.replace('_',' ')}</option>`).join('')}</select></label></div><div class="actions"><button class="primary" type="submit">${s?'Update':'Save'} staff</button><button class="secondary" type="button" id="cancelStaff">Cancel</button></div></form></div>`);
+ $('entry').scrollIntoView({block:'start'});$('cancelStaff').onclick=()=>$('entry').remove();
+ $('staffEntry').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);const p={school_id:SCHOOL_ID,staff_number:String(f.get('staff_number')||'').trim()||null,full_name:String(f.get('full_name')||'').trim(),position:String(f.get('position')),assigned_class_id:String(f.get('assigned_class_id')||'')||null,phone:String(f.get('phone')||'').trim()||null,email:String(f.get('email')||'').trim()||null,date_joined:String(f.get('date_joined')||'')||null,employment_status:String(f.get('employment_status'))};const btn=e.target.querySelector('button[type="submit"]');btn.disabled=true;btn.textContent='Saving…';const q=s?supabaseClient.from('pbis_staff').update(p).eq('staff_id',s.staff_id).eq('school_id',SCHOOL_ID):supabaseClient.from('pbis_staff').insert(p);const {data,error}=await q.select('staff_id');if(error||!data?.length){alert('Staff record not saved: '+(error?.message||'No record changed'));btn.disabled=false;btn.textContent='Try again';return;}alert('Staff record saved successfully.');render('Staff');};
+}
 function editStudent(i){
  const s=liveStudents[i];if(!s)return;
  const prior=$('entry');if(prior)prior.remove();
@@ -146,7 +168,7 @@ function editStudent(i){
 }
 function delRow(page,i){if(confirm('Delete this demo record?')){data[page].splice(i,1);save();render(page)}}
 $('nav').onclick=e=>{const b=e.target.closest('[data-page]');if(b)go(b.dataset.page)};
-$('content').onclick=async e=>{const ge=e.target.closest('[data-guardian-edit]');if(ge){guardianForm(Number(ge.dataset.guardianEdit));return;}const edit=e.target.closest('[data-live-edit]');if(edit){editStudent(Number(edit.dataset.liveEdit));return;}const live=e.target.closest('[data-live-delete]');if(live){if(!confirm('Delete this student from the live database? This cannot be undone.'))return;const row=liveStudents[Number(live.dataset.liveDelete)];const id=row?.student_id??row?.id;if(!id){alert('No student ID column was found. Nothing was deleted.');return;}const key=row?.student_id!==undefined?'student_id':'id';const {error}=await supabaseClient.from('students').delete().eq(key,id).eq('school_id',SCHOOL_ID);if(error){alert('Student was not deleted: '+error.message);return;}render('Students');return;}const b=e.target.closest('[data-delete-page]');if(b)delRow(b.dataset.deletePage,Number(b.dataset.deleteIndex))};
+$('content').onclick=async e=>{const se=e.target.closest('[data-staff-edit]');if(se){staffForm(Number(se.dataset.staffEdit));return;}const ge=e.target.closest('[data-guardian-edit]');if(ge){guardianForm(Number(ge.dataset.guardianEdit));return;}const edit=e.target.closest('[data-live-edit]');if(edit){editStudent(Number(edit.dataset.liveEdit));return;}const live=e.target.closest('[data-live-delete]');if(live){if(!confirm('Delete this student from the live database? This cannot be undone.'))return;const row=liveStudents[Number(live.dataset.liveDelete)];const id=row?.student_id??row?.id;if(!id){alert('No student ID column was found. Nothing was deleted.');return;}const key=row?.student_id!==undefined?'student_id':'id';const {error}=await supabaseClient.from('students').delete().eq(key,id).eq('school_id',SCHOOL_ID);if(error){alert('Student was not deleted: '+error.message);return;}render('Students');return;}const b=e.target.closest('[data-delete-page]');if(b)delRow(b.dataset.deletePage,Number(b.dataset.deleteIndex))};
 $('add').onclick=addForm;
 $('export').onclick=()=>{const a=document.createElement('a'),u=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.href=u;a.download='pinks-blues-demo-data.json';a.click();URL.revokeObjectURL(u)};
 async function showLogin(message=''){
