@@ -69,6 +69,14 @@ async function render(page){
   const searchInput=$('studentSearch');if(searchInput)searchInput.oninput=()=>{const q=searchInput.value.trim().toLowerCase();root.querySelectorAll('tbody tr').forEach(tr=>{tr.hidden=!tr.textContent.toLowerCase().includes(q);});};
   return;
  }
+ if(page==='Student ID Cards'){
+  if(!supabaseClient){root.innerHTML='<div class="panel">Database unavailable.</div>';return;}
+  root.innerHTML='<div class="panel"><h2>Student ID Cards</h2><p class="sub">Loading live student numbers…</p></div>';
+  const {data:students,error}=await supabaseClient.from('students').select('student_number,first_name,last_name').eq('school_id',SCHOOL_ID).order('student_number',{ascending:true}).limit(200);
+  if(error){root.innerHTML='<div class="panel"><h2>Student ID Cards</h2><p class="sub">'+esc(error.message)+'</p></div>';return;}
+  root.innerHTML='<div class="panel"><h2>Student ID Cards · Live records</h2><p class="sub">Preview only. Class, photographs and official printing will be added later.</p><div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">'+(students||[]).map(s=>'<div class="card" style="border-top:5px solid var(--pink)"><b>PINKS & BLUES</b><p class="sub">INTERNATIONAL SCHOOL</p><h2>'+esc(s.first_name)+' '+esc(s.last_name)+'</h2><p><b>'+esc(s.student_number)+'</b></p></div>').join('')+'</div></div>';
+  return;
+ }
  if(page==='Dashboard'){
   const {count:liveCount,error:countError}=await supabaseClient.from('students').select('student_id',{count:'exact',head:true}).eq('school_id',SCHOOL_ID);const st=countError?'Unavailable':(liveCount??0),sf=(data.Staff||[]).length,bill=(data['Student Billing']||[]).reduce((n,r)=>n+(+r['Bill amount (GHS)']||0),0),paid=(data['Student Billing']||[]).reduce((n,r)=>n+(+r['Paid (GHS)']||0),0);
   root.innerHTML=`<div class="cards"><div class="card"><div class="accent"></div><div class="label">Student records</div><div class="metric">${st}</div><span class="label">Live Supabase records</span></div><div class="card"><div class="accent" style="background:var(--blue)"></div><div class="label">Staff records</div><div class="metric">${sf}</div><span class="label">Demo records</span></div><div class="card"><div class="accent" style="background:#59a58b"></div><div class="label">Bills recorded</div><div class="metric">GH₵ ${bill.toFixed(2)}</div></div><div class="card"><div class="accent" style="background:#d7a64a"></div><div class="label">Payments recorded</div><div class="metric">GH₵ ${paid.toFixed(2)}</div></div></div><div class="panel"><h2>Platform modules</h2><p class="sub">Core modules requested for the multi-school system.</p><div class="cards">${modules.slice(1,9).map(m=>`<div class="card"><b>${esc(m)}</b><p class="label">${esc(desc[m])}</p></div>`).join('')}</div></div>`;return;
