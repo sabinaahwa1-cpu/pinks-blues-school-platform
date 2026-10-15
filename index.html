@@ -51,8 +51,8 @@ button{cursor:pointer}.primary{background:var(--pink);color:#fff;border:0;border
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="document.getElementById('loginMessage').textContent='The sign-in service could not load. Check your internet connection and reload.'"></script>
 <script>
-const SUPABASE_URL='https://lpxelgjrihgwqflzqkpa.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY='sb_publishable_z9KwkgfHvm2o8YBQOdhteg_plMv93h3';
+const SUPABASE_URL='https://jvmupmubyichsluyjxir.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_ONSO9D2KdUgevOkxVc0krQ_bSAMnKsI';
 let supabaseClient=null;
 let currentProfile=null;
 try{
@@ -77,7 +77,7 @@ $('menuBackdrop').onclick=closeSideMenu;
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSideMenu();});
 function save(){localStorage.setItem('pb_platform_demo_v1',JSON.stringify(data))}
 function go(page){closeSideMenu();if(restrictedForStaff.includes(page)&&!financeRoles.includes(String(currentProfile?.role||'').toLowerCase())){alert('This module is not yet enabled for staff. Only the read-only dashboard is available until permissions are verified.');page='Dashboard';}$('title').textContent=moduleLabel(page);$('subtitle').textContent=desc[page]||'';$('add').hidden=(page==='Dashboard'||page==='Schools Management')||!financeRoles.includes(String(currentProfile?.role||'').toLowerCase());document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page));render(page)}
-const SCHOOL_ID='1688afd4-9565-4f3e-8cfb-38cce3f464e3';
+const SCHOOL_ID='c92aca38-9317-45c1-a74a-55206b7bbea6';
 let schoolClasses=[];
 async function loadSchoolClasses(){const {data,error}=await supabaseClient.from('pbis_class_directory').select('class_id,class_name,sort_order').eq('school_id',SCHOOL_ID).order('sort_order');if(error){console.warn('Class directory unavailable',error.message);return false;}schoolClasses=data||[];return true;}
 function classOptions(selected=''){return '<option value="">Select class (optional)</option>'+schoolClasses.map(c=>'<option value="'+esc(c.class_id)+'" '+(selected===c.class_id?'selected':'')+'>'+esc(c.class_name)+'</option>').join('');}
@@ -89,7 +89,7 @@ async function render(page){
  const root=$('content');
  if(page==='Schools Management'){
   root.innerHTML='<div class="panel"><h2>School information</h2><p>Loading registered school information…</p></div>';
-  const {data:school,error}=await supabaseClient.from('schools').select('*').eq('school_id',SCHOOL_ID).maybeSingle();
+  const {data:school,error}=await supabaseClient.from('schools').select('*').eq('id',SCHOOL_ID).maybeSingle();
   if(error){root.innerHTML='<div class="panel"><h2>School information</h2><p>Unable to read school record: '+esc(error.message)+'</p></div>';return;}
   if(!school){root.innerHTML='<div class="panel"><h2>School information</h2><p>No authorized school record was found.</p></div>';return;}
   root.innerHTML='<div class="panel"><h2>Registered school · Live database</h2><p class="sub">This page displays the school linked to your account. Adding more schools requires a verified multi-school administration workflow; duplicate school records are not created here.</p><div class="tablewrap"><table><tbody>'+Object.entries(school).filter(([key])=>['school_name','name','school_code','phone','email','address','status'].includes(key)).map(([key,value])=>'<tr><th>'+esc(key.replaceAll('_',' '))+'</th><td>'+esc(value??'—')+'</td></tr>').join('')+'</tbody></table></div></div>';return;
@@ -417,16 +417,19 @@ async function showLogin(message=''){
 async function enterPlatform(session){
  if(!session?.user){await showLogin();return;}
  $('loginMessage').textContent='Checking your school account…';
- const {data:profile,error}=await supabaseClient.from('profiles').select('user_id,school_id,full_name,email,role,status').eq('user_id',session.user.id).maybeSingle();
- if(error){await showLogin('Your account signed in, but the profile could not be verified. Please apply the database security setup file in the GitHub repository, then try again. Details: '+error.message);return;}
- if(!profile){await showLogin('This email is not linked to a school staff profile. Ask the platform owner to set up your profile.');return;}
- const role=String(profile.role||'').trim().toLowerCase();
- const allowed=['platform_owner','platform owner','school_owner','school_admin','admin','school administrator','administrator','teacher','staff'];
- if(String(profile.school_id||'')!==SCHOOL_ID||String(profile.status||'').toLowerCase()!=='active'||!allowed.includes(role)){
-  await supabaseClient.auth.signOut();
-  await showLogin('Access denied. This account does not have an authorized school role for Pinks & Blues International School.');
-  return;
+ const {data:account,error}=await supabaseClient.from('profiles').select('id,full_name,is_platform_owner').eq('id',session.user.id).maybeSingle();
+ if(error){await showLogin('Your account signed in, but the school profile could not be verified: '+error.message);return;}
+ if(!account){await showLogin('This login is not registered as a school user.');return;}
+ let role='';let authorizedSchoolId=SCHOOL_ID;
+ if(account.is_platform_owner){role='platform_owner';}
+ else{
+  const {data:membership,error:memberError}=await supabaseClient.from('school_users').select('school_id,role,status').eq('user_id',session.user.id).eq('school_id',SCHOOL_ID).eq('status','active').maybeSingle();
+  if(memberError||!membership){await showLogin('This account has no active membership in Pinks & Blues International School.');return;}
+  role=membership.role==='proprietor'?'platform_owner':membership.role==='administrator'?'school_admin':membership.role==='headteacher'?'admin':membership.role==='accountant'?'admin':'staff';
+  authorizedSchoolId=membership.school_id;
  }
+ if(authorizedSchoolId!==SCHOOL_ID){await showLogin('Your school membership does not match this school.');return;}
+ const profile={full_name:account.full_name,email:session.user.email,role,school_id:authorizedSchoolId,status:'active'};
  currentProfile=profile;
  document.querySelectorAll('[data-page]').forEach(btn=>{btn.hidden=restrictedForStaff.includes(btn.dataset.page)&&!financeRoles.includes(role);});$('add').hidden=!financeRoles.includes(role);
  $('signedInLabel').textContent=profile.full_name||profile.email||session.user.email;
@@ -435,7 +438,7 @@ async function enterPlatform(session){
  go('Dashboard');
 }
 async function showPasswordRecovery(){await showLogin('Set a new password for your existing school account.');const area=$('resetPasswordMessage');area.innerHTML='<label>New password <input type="password" id="newRecoveryPassword" minlength="12" autocomplete="new-password" placeholder="At least 12 characters"></label><button class="primary" id="saveRecoveryPassword" type="button">Save new password</button>';const btn=$('saveRecoveryPassword');btn.onclick=async()=>{const pass=$('newRecoveryPassword').value;if(pass.length<12){$('loginMessage').textContent='Use at least 12 characters.';return;}btn.disabled=true;const {error}=await supabaseClient.auth.updateUser({password:pass});btn.disabled=false;if(error){$('loginMessage').textContent='Password change failed: '+error.message;return;}area.textContent='Password updated. You can now sign in.';$('loginMessage').textContent='Password changed successfully.';await supabaseClient.auth.signOut();};}
-$('resetPasswordButton').onclick=async()=>{const login=$('loginEmail').value.trim();if(!email||!/^\S+@\S+\.\S+$/.test(email)){$('resetPasswordMessage').textContent='Enter your registered school email above first.';return;}const btn=$('resetPasswordButton');btn.disabled=true;const {error}=await supabaseClient.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});btn.disabled=false;$('resetPasswordMessage').textContent=error?'Password reset unavailable: '+error.message:'If this email is registered, check your inbox for the password reset link.';};
+$('resetPasswordButton').onclick=async()=>{const login=$('loginEmail').value.trim();if(!login||!/^\S+@\S+\.\S+$/.test(login)){$('resetPasswordMessage').textContent='Enter your registered school email above first.';return;}const btn=$('resetPasswordButton');btn.disabled=true;const {error}=await supabaseClient.auth.resetPasswordForEmail(login,{redirectTo:location.origin+location.pathname});btn.disabled=false;$('resetPasswordMessage').textContent=error?'Password reset unavailable: '+error.message:'If this email is registered, check your inbox for the password reset link.';};
 $('loginForm').onsubmit=async e=>{
  e.preventDefault();
  if(!supabaseClient){$('loginMessage').textContent='The secure sign-in service could not start. Refresh the page and try again.';return;}
