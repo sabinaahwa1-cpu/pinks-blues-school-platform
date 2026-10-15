@@ -26,14 +26,14 @@ button{cursor:pointer}.primary{background:var(--pink);color:#fff;border:0;border
 <body>
 <section id="loginScreen">
 <h1>Pinks & Blues International School</h1>
-<p>Sign in with the email address already registered for your school platform. New account registration is disabled.</p>
+<p>Sign in with your registered email, staff username or staff ID. New accounts are created by authorized school management.</p>
 <form id="loginForm"><label for="loginEmail">Email, staff username or staff ID</label><input id="loginEmail" type="text" autocomplete="username" placeholder="Email, username or staff ID" required><label for="loginPassword">Password</label><input id="loginPassword" type="password" autocomplete="current-password" minlength="6" placeholder="Your school account password" required><button class="primary" id="loginButton" type="submit">Sign in with password</button></form><p>If your existing account does not have a password yet, it must be set securely in Supabase before this login will work. Do not share your password with anyone.</p>
 <button class="secondary" type="button" id="resetPasswordButton">Send password reset email</button><p id="resetPasswordMessage" role="status" aria-live="polite"></p><p id="loginMessage" role="status" aria-live="polite"></p>
 </section>
 <div id="appShell" class="hidden">
 <header><div class="brand">PINKS & BLUES<small>School Management Platform · Rising Beyond Limits</small></div><div class="actions"><span id="signedInLabel">Signed in</span><button class="secondary" id="signOutButton">Sign out</button></div></header>
 <div class="layout" id="appLayout"><aside id="sideMenu" aria-label="School management modules"><div class="sideHeading">MANAGEMENT MENU</div><nav id="nav"></nav></aside><main><button class="secondary menuToggle" id="menuToggle" type="button" aria-controls="sideMenu" aria-expanded="false">☰ Menu</button>
-<div class="topline"><div><h1 id="title">Dashboard</h1><div class="sub" id="subtitle">Overview of school operations.</div></div><div class="actions"><span class="status" id="connectionStatus">Checking Supabase setup…</span><button class="secondary" id="export">Export demo data</button><button class="primary" id="add" hidden>+ Add record</button></div></div>
+<div class="topline"><div><h1 id="title">Dashboard</h1><div class="sub" id="subtitle">Overview of school operations.</div></div><div class="actions"><span class="status" id="connectionStatus">Checking Supabase setup…</span><button class="secondary" id="export">Export local draft</button><button class="primary" id="add" hidden>+ Add record</button></div></div>
 <div id="content"></div><div class="note"><b>Current status:</b> Password sign-in, student records, class selection, and parent/guardian records are connected to Supabase. Student registration and editing have been tested. Guardian editing, deletion permissions, and broader security checks still need testing. General modules now save school records in Supabase; specialized workflows are still under development.</div><div class="note"><b>Important:</b> Do not enter real pupil, family, staff or financial information yet. Students and Parents & Guardians are connected to the database, but comprehensive security and permissions testing is not yet complete. General modules now use Supabase storage, but specialized workflows and full multi-school support still require completion.</div>
 </main></div><div id="menuBackdrop" aria-hidden="true"></div>
 </div>
@@ -64,7 +64,7 @@ $('menuToggle').onclick=()=>{const layout=$('appLayout'),open=layout.classList.t
 $('menuBackdrop').onclick=closeSideMenu;
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSideMenu();});
 function save(){localStorage.setItem('pb_platform_demo_v1',JSON.stringify(data))}
-function go(page){closeSideMenu();if(restrictedForStaff.includes(page)&&!financeRoles.includes(String(currentProfile?.role||'').toLowerCase())){alert('This module is not yet enabled for staff. Only the read-only dashboard is available until permissions are verified.');page='Dashboard';}$('title').textContent=moduleLabel(page);$('subtitle').textContent=desc[page]||'';$('add').hidden=page==='Dashboard'||!financeRoles.includes(String(currentProfile?.role||'').toLowerCase());document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page));render(page)}
+function go(page){closeSideMenu();if(restrictedForStaff.includes(page)&&!financeRoles.includes(String(currentProfile?.role||'').toLowerCase())){alert('This module is not yet enabled for staff. Only the read-only dashboard is available until permissions are verified.');page='Dashboard';}$('title').textContent=moduleLabel(page);$('subtitle').textContent=desc[page]||'';$('add').hidden=(page==='Dashboard'||page==='Schools Management')||!financeRoles.includes(String(currentProfile?.role||'').toLowerCase());document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page));render(page)}
 const SCHOOL_ID='1688afd4-9565-4f3e-8cfb-38cce3f464e3';
 let schoolClasses=[];
 async function loadSchoolClasses(){const {data,error}=await supabaseClient.from('pbis_class_directory').select('class_id,class_name,sort_order').eq('school_id',SCHOOL_ID).order('sort_order');if(error){console.warn('Class directory unavailable',error.message);return false;}schoolClasses=data||[];return true;}
@@ -75,6 +75,13 @@ let liveGuardians=[],guardianStudents=[];
 let liveStaff=[];
 async function render(page){
  const root=$('content');
+ if(page==='Schools Management'){
+  root.innerHTML='<div class="panel"><h2>School information</h2><p>Loading registered school information…</p></div>';
+  const {data:school,error}=await supabaseClient.from('schools').select('*').eq('school_id',SCHOOL_ID).maybeSingle();
+  if(error){root.innerHTML='<div class="panel"><h2>School information</h2><p>Unable to read school record: '+esc(error.message)+'</p></div>';return;}
+  if(!school){root.innerHTML='<div class="panel"><h2>School information</h2><p>No authorized school record was found.</p></div>';return;}
+  root.innerHTML='<div class="panel"><h2>Registered school · Live database</h2><p class="sub">This page displays the school linked to your account. Adding more schools requires a verified multi-school administration workflow; duplicate school records are not created here.</p><div class="tablewrap"><table><tbody>'+Object.entries(school).filter(([key])=>['school_name','name','school_code','phone','email','address','status'].includes(key)).map(([key,value])=>'<tr><th>'+esc(key.replaceAll('_',' '))+'</th><td>'+esc(value??'—')+'</td></tr>').join('')+'</tbody></table></div></div>';return;
+ }
  if(page==='Kitchen Operations'){
   root.innerHTML='<div class="panel"><h2>Kitchen stock ledger</h2><p>Loading live inventory…</p></div>';
   const {data:movements,error}=await supabaseClient.from('pbis_inventory_movements').select('*').eq('school_id',SCHOOL_ID).order('created_at',{ascending:false}).limit(500);
@@ -303,7 +310,7 @@ function addForm(){
   $('form').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);const record={school_id:SCHOOL_ID,first_name:String(fd.get('First name')||'').trim(),last_name:String(fd.get('Last name')||'').trim(),gender:String(fd.get('Gender')||'').trim()||null,date_of_birth:String(fd.get('Date of birth')||'')||null,pbis_class_id:String(fd.get('Class')||'')||null,admission_date:String(fd.get('Admission date')||'')||null,status:String(fd.get('Status')||'active').trim()||'active'};const submit=e.target.querySelector('button[type="submit"],button:not([type])');if(submit){submit.disabled=true;submit.textContent='Checking…'}if(submit)submit.textContent='Saving…';const {data:saved,error}=await supabaseClient.from('students').insert(record).select('student_number').single();if(error){alert('Student was not saved. Supabase says: '+error.message+'\n\nNo local-only copy was created. Login or database permissions may need setup.');if(submit){submit.disabled=false;submit.textContent='Save student'}return;}alert('Student saved to Supabase. Student number: '+(saved?.student_number||'See student list'));render('Students');};
   return;
  }
- $('content').insertAdjacentHTML('afterbegin',`<div class="panel" id="entry"><h2>Add ${esc(page)} record</h2><form id="form"><div class="formrow">${cols.map((c,i)=>`<input name="${esc(c)}" placeholder="${esc(c)}" ${i===0?'required':''}>`).join('')}</div><div class="actions"><button class="primary">Save demo record</button><button class="secondary" type="button" id="cancel">Cancel</button></div></form></div>`);
+ $('content').insertAdjacentHTML('afterbegin',`<div class="panel" id="entry"><h2>Add ${esc(page)} record</h2><form id="form"><div class="formrow">${cols.map((c,i)=>`<input name="${esc(c)}" placeholder="${esc(c)}" ${i===0?'required':''}>`).join('')}</div><div class="actions"><button class="primary">Save record</button><button class="secondary" type="button" id="cancel">Cancel</button></div></form></div>`);
  $('cancel').onclick=()=>$('entry').remove();
  $('form').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target),payload={};cols.forEach(k=>payload[k]=String(fd.get(k)||'').trim());const btn=e.target.querySelector('button[type=submit],button:not([type])');if(btn)btn.disabled=true;const {error}=await supabaseClient.from('pbis_module_records').insert({school_id:SCHOOL_ID,module:page,payload,created_by:currentProfile.user_id});if(error){alert('Not saved: '+error.message);if(btn)btn.disabled=false;return;}await render(page)};
 }
@@ -351,7 +358,7 @@ function delRow(page,i){if(confirm('Delete this demo record?')){data[page].splic
 $('nav').onclick=e=>{const b=e.target.closest('[data-page]');if(b)go(b.dataset.page)};
 $('content').onclick=async e=>{const se=e.target.closest('[data-staff-edit]');if(se){staffForm(Number(se.dataset.staffEdit));return;}const ge=e.target.closest('[data-guardian-edit]');if(ge){guardianForm(Number(ge.dataset.guardianEdit));return;}const edit=e.target.closest('[data-live-edit]');if(edit){editStudent(Number(edit.dataset.liveEdit));return;}const live=e.target.closest('[data-live-delete]');if(live){if(!confirm('Delete this student from the live database? This cannot be undone.'))return;const row=liveStudents[Number(live.dataset.liveDelete)];const id=row?.student_id??row?.id;if(!id){alert('No student ID column was found. Nothing was deleted.');return;}const key=row?.student_id!==undefined?'student_id':'id';const {error}=await supabaseClient.from('students').delete().eq(key,id).eq('school_id',SCHOOL_ID);if(error){alert('Student was not deleted: '+error.message);return;}render('Students');return;}const b=e.target.closest('[data-delete-page]');if(b)delRow(b.dataset.deletePage,Number(b.dataset.deleteIndex))};
 $('add').onclick=addForm;
-$('export').onclick=()=>{const a=document.createElement('a'),u=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.href=u;a.download='pinks-blues-demo-data.json';a.click();URL.revokeObjectURL(u)};
+$('export').onclick=()=>{if(!confirm('This exports only older local browser draft data, NOT your live Supabase school records. Continue?'))return;const a=document.createElement('a'),u=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.href=u;a.download='pinks-blues-local-draft.json';a.click();URL.revokeObjectURL(u)};
 async function showLogin(message=''){
  $('appShell').classList.add('hidden');$('loginScreen').classList.remove('hidden');
  $('loginMessage').textContent=message;
