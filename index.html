@@ -45,6 +45,8 @@ try{
   document.getElementById('connectionStatus').textContent='Supabase client configured';
  }else{document.getElementById('connectionStatus').textContent='Supabase setup not configured';}
 }catch(error){document.getElementById('connectionStatus').textContent='Supabase setup needs checking';}
+const financeRoles=['platform_owner','school_admin','admin'];
+const restrictedForStaff=['Schools Management','Students','Parents & Guardians','Staff','Attendance','Student Assessments','Staff Assessments','Classes & Subjects','Timetable','Student Billing','Payments & Receipts','Fee Arrears','Kitchen Operations','Daily School Diary','Behaviour & Incidents','Examinations & Results','Report Cards','Student ID Cards','Staff Responsibilities','Announcements','Documents & Records','Reports','Settings & Permissions'];
 const moduleLabel=name=>name==='Student Billing'?'Student Billing — Create Bills':name==='Payments & Receipts'?'Fee Collection & Receipts':name==='Fee Arrears'?'Fee Arrears — Balances':name;
 const modules=['Dashboard','Schools Management','Students','Parents & Guardians','Staff','Attendance','Student Assessments','Staff Assessments','Classes & Subjects','Timetable','Student Billing','Payments & Receipts','Fee Arrears','Kitchen Operations','Daily School Diary','Behaviour & Incidents','Examinations & Results','Report Cards','Student ID Cards','Staff Responsibilities','Announcements','Documents & Records','Reports','Settings & Permissions'];
 const desc={'Dashboard':'A quick overview of the platform.','Schools Management':'Register and manage schools.','Students':'Admission and student profiles.','Parents & Guardians':'Family and emergency contact records.','Staff':'Staff profiles and employment details.','Attendance':'Student and staff attendance registers.','Student Assessments':'Classwork, homework, tests, projects and exam scores.','Staff Assessments':'Punctuality, teaching, professionalism and teamwork reviews.','Classes & Subjects':'Classes, levels, subjects and class teachers.','Timetable':'Class periods, teachers, subjects and rooms.','Student Billing':'Bills, discounts and balances by student and term.','Payments & Receipts':'Record payments and receipt references.','Fee Arrears':'Outstanding balances and follow-up.','Kitchen Operations':'Menus, stock received, stock used and wastage.','Daily School Diary':'Events, visitors, decisions and follow-up actions.','Behaviour & Incidents':'Record incidents and actions taken.','Examinations & Results':'Exams and student results.','Report Cards':'Term summaries and comments.','Student ID Cards':'Student ID card records.','Staff Responsibilities':'Assign duties and track weekly accountability.','Announcements':'Notices for school audiences.','Documents & Records':'Register important documents.','Reports':'Operational summaries and data export.','Settings & Permissions':'Academic settings and user roles.'};
@@ -54,7 +56,7 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 $('nav').innerHTML=modules.map((m,i)=>`<button data-page="${esc(m)}" class="${i===0?'active':''}">${['▦','▣','♙','♧','♟','✓','▤','★','▦','◷','₵','▤','!','♨','▣','⚑','✎','▤','▧','☑','◉','▤','▥','⚙'][i]} ${esc(moduleLabel(m))}</button>`).join('');
 function save(){localStorage.setItem('pb_platform_demo_v1',JSON.stringify(data))}
-function go(page){if(['Student Billing','Payments & Receipts','Fee Arrears'].includes(page)&&!['platform_owner','school_admin','admin'].includes(String(currentProfile?.role||'').toLowerCase())){alert('Finance access restricted to authorized management.');page='Dashboard';}$('title').textContent=moduleLabel(page);$('subtitle').textContent=desc[page]||'';$('add').hidden=page==='Dashboard';document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page));render(page)}
+function go(page){if(restrictedForStaff.includes(page)&&!financeRoles.includes(String(currentProfile?.role||'').toLowerCase())){alert('This module is not yet enabled for staff. Only the read-only dashboard is available until permissions are verified.');page='Dashboard';}$('title').textContent=moduleLabel(page);$('subtitle').textContent=desc[page]||'';$('add').hidden=page==='Dashboard'||!financeRoles.includes(String(currentProfile?.role||'').toLowerCase());document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page));render(page)}
 const SCHOOL_ID='1688afd4-9565-4f3e-8cfb-38cce3f464e3';
 let schoolClasses=[];
 async function loadSchoolClasses(){const {data,error}=await supabaseClient.from('pbis_class_directory').select('class_id,class_name,sort_order').eq('school_id',SCHOOL_ID).order('sort_order');if(error){console.warn('Class directory unavailable',error.message);return false;}schoolClasses=data||[];return true;}
@@ -315,18 +317,18 @@ async function showLogin(message=''){
 async function enterPlatform(session){
  if(!session?.user){await showLogin();return;}
  $('loginMessage').textContent='Checking your school account…';
- const {data:profile,error}=await supabaseClient.from('profiles').select('user_id,school_id,full_name,email,role').eq('user_id',session.user.id).maybeSingle();
+ const {data:profile,error}=await supabaseClient.from('profiles').select('user_id,school_id,full_name,email,role,status').eq('user_id',session.user.id).maybeSingle();
  if(error){await showLogin('Your account signed in, but the profile could not be verified. Please apply the database security setup file in the GitHub repository, then try again. Details: '+error.message);return;}
  if(!profile){await showLogin('This email is not linked to a school staff profile. Ask the platform owner to set up your profile.');return;}
  const role=String(profile.role||'').trim().toLowerCase();
  const allowed=['platform_owner','platform owner','school_owner','school_admin','admin','school administrator','administrator','teacher','staff'];
- if(String(profile.school_id||'')!==SCHOOL_ID||!allowed.includes(role)){
+ if(String(profile.school_id||'')!==SCHOOL_ID||String(profile.status||'').toLowerCase()!=='active'||!allowed.includes(role)){
   await supabaseClient.auth.signOut();
   await showLogin('Access denied. This account does not have an authorized school role for Pinks & Blues International School.');
   return;
  }
  currentProfile=profile;
- document.querySelectorAll('[data-page]').forEach(btn=>{if(['Student Billing','Payments & Receipts','Fee Arrears'].includes(btn.dataset.page))btn.hidden=!['platform_owner','school_admin','admin'].includes(role);});
+ document.querySelectorAll('[data-page]').forEach(btn=>{btn.hidden=restrictedForStaff.includes(btn.dataset.page)&&!financeRoles.includes(role);});$('add').hidden=!financeRoles.includes(role);
  $('signedInLabel').textContent=profile.full_name||profile.email||session.user.email;
  $('loginScreen').classList.add('hidden');$('appShell').classList.remove('hidden');
  $('connectionStatus').textContent='Signed in · school profile verified';
