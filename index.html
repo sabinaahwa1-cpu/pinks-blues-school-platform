@@ -252,8 +252,11 @@ async function render(page){
   root.querySelectorAll("[data-finance-go]").forEach(btn=>btn.onclick=()=>go(btn.dataset.financeGo));
   return;
  }
- const cols=fields[page]||['Name','Date','Notes'],rows=data[page]||[];
- root.innerHTML=`<div class="panel"><h2>${esc(page)} records</h2><p class="sub">Add a demo record with the button above.</p>${rows.length?`<div class="tablewrap"><table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}<th>Action</th></tr></thead><tbody>${rows.map((r,i)=>`<tr>${cols.map(c=>`<td>${esc(r[c])}</td>`).join('')}<td><button class="secondary" data-delete-page="${esc(page)}" data-delete-index="${i}">Delete</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">No records yet. Tap “+ Add record” to add the first demo record.</div>'}</div>`;
+ const cols=fields[page]||['Name','Date','Notes'];
+ root.innerHTML='<div class="panel"><h2>'+esc(page)+'</h2><p>Loading school records from Supabase…</p></div>';
+ const {data:rows,error}=await supabaseClient.from('pbis_module_records').select('record_id,payload,created_at').eq('school_id',SCHOOL_ID).eq('module',page).order('created_at',{ascending:false}).limit(300);
+ if(error){root.innerHTML='<div class="panel"><h2>'+esc(page)+'</h2><p>Records could not be loaded: '+esc(error.message)+'</p></div>';return;}
+ root.innerHTML='<div class="panel"><h2>'+esc(page)+' · Live school records</h2><p class="sub">Records are saved in the school database, not this device. Entries are retained for audit purposes.</p>'+(rows?.length?'<div class="tablewrap"><table><thead><tr>'+cols.map(k=>'<th>'+esc(k)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+cols.map(k=>'<td>'+esc(r.payload?.[k]||'')+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>':'<p class="empty">No entries yet. Use + Add record to create one.</p>')+'</div>';
 }
 function addForm(){
  if(['Student Billing','Payments & Receipts','Fee Arrears'].some(m=>moduleLabel(m)===$('title').textContent)){document.getElementById('billEntry')?.scrollIntoView({behavior:'smooth'});document.getElementById('paymentEntry')?.scrollIntoView({behavior:'smooth'});return;}
@@ -270,7 +273,7 @@ function addForm(){
  }
  $('content').insertAdjacentHTML('afterbegin',`<div class="panel" id="entry"><h2>Add ${esc(page)} record</h2><form id="form"><div class="formrow">${cols.map((c,i)=>`<input name="${esc(c)}" placeholder="${esc(c)}" ${i===0?'required':''}>`).join('')}</div><div class="actions"><button class="primary">Save demo record</button><button class="secondary" type="button" id="cancel">Cancel</button></div></form></div>`);
  $('cancel').onclick=()=>$('entry').remove();
- $('form').onsubmit=e=>{e.preventDefault();const fd=new FormData(e.target),r={};cols.forEach(c=>r[c]=fd.get(c)||'');(data[page]||(data[page]=[])).push(r);save();render(page)};
+ $('form').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target),payload={};cols.forEach(k=>payload[k]=String(fd.get(k)||'').trim());const btn=e.target.querySelector('button[type=submit],button:not([type])');if(btn)btn.disabled=true;const {error}=await supabaseClient.from('pbis_module_records').insert({school_id:SCHOOL_ID,module:page,payload,created_by:currentProfile.user_id});if(error){alert('Not saved: '+error.message);if(btn)btn.disabled=false;return;}await render(page)};
 }
 async function guardianForm(index=null){
  const g=index===null?null:liveGuardians[index];
