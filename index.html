@@ -327,7 +327,7 @@ async function render(page){
  if(page==='Dashboard'){
   root.innerHTML='<div class="panel"><h2>Live school dashboard</h2><p class="sub">Loading verified database totals…</p></div>';
   const now=new Date(),date=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');
-  const checks=[['Students','students','student_id',false],['Staff','pbis_staff','staff_id',false],['Guardians','pbis_guardians','guardian_id',false],['Student attendance today','pbis_student_attendance','attendance_id',true],['Staff attendance today','pbis_staff_attendance','attendance_id',true]];
+  const checks=[['Students','pbis_students','student_id',false],['Staff','pbis_staff','staff_id',false],['Guardians','pbis_guardians','guardian_id',false],['Student attendance today','pbis_student_attendance','attendance_id',true],['Staff attendance today','pbis_staff_attendance','attendance_id',true]];
   const results=await Promise.all(checks.map(async([label,table,col,daily])=>{
     let q=supabaseClient.from(table).select(col,{count:'exact',head:true}).eq('school_id',SCHOOL_ID);
     if(daily)q=q.eq('attendance_date',date);
