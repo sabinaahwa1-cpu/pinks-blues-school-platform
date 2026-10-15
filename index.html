@@ -462,12 +462,15 @@ $('loginForm').onsubmit=async e=>{
 };
 $('signOutButton').onclick=async()=>{if(supabaseClient)await supabaseClient.auth.signOut();currentProfile=null;await showLogin('You have signed out.');};
 supabaseClient?.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY')setTimeout(()=>showPasswordRecovery(),0);});
+if(location.hash.includes('type=recovery')||location.search.includes('type=recovery')){
+ supabaseClient?.auth.getSession().then(({data})=>{if(data?.session)showPasswordRecovery();});
+}
 async function initializeAuth(){
  if(!supabaseClient){await showLogin('Secure sign-in is unavailable because the Supabase client could not start.');return;}
  await showLogin('Checking your sign-in session…');
  const {data,error}=await supabaseClient.auth.getSession();
  if(error){await showLogin('Could not check your session: '+error.message);return;}
- if(data.session)await enterPlatform(data.session);else await showLogin();
+ if(data.session){if(location.hash.includes('type=recovery')||location.search.includes('type=recovery'))await showPasswordRecovery();else await enterPlatform(data.session);}else await showLogin();
 }
 initializeAuth().catch(error=>{const msg=document.getElementById("loginMessage");if(msg)msg.textContent="Sign-in initialization failed: "+(error?.message||"Please reload the page.");console.error("School platform initialization error",error);});
 </script>
