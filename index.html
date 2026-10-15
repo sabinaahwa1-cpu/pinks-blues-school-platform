@@ -24,7 +24,7 @@ button{cursor:pointer}.primary{background:var(--pink);color:#fff;border:0;border
 <h1>Pinks & Blues International School</h1>
 <p>Sign in with the email address already registered for your school platform. New account registration is disabled.</p>
 <form id="loginForm"><label for="loginEmail">Email address</label><input id="loginEmail" type="email" autocomplete="email" placeholder="you@example.com" required><label for="loginPassword">Password</label><input id="loginPassword" type="password" autocomplete="current-password" minlength="6" placeholder="Your school account password" required><button class="primary" id="loginButton" type="submit">Sign in with password</button></form><p>If your existing account does not have a password yet, it must be set securely in Supabase before this login will work. Do not share your password with anyone.</p>
-<p id="loginMessage" role="status" aria-live="polite"></p>
+<button class="secondary" type="button" id="resetPasswordButton">Send password reset email</button><p id="resetPasswordMessage" role="status" aria-live="polite"></p><p id="loginMessage" role="status" aria-live="polite"></p>
 </section>
 <div id="appShell" class="hidden">
 <header><div class="brand">PINKS & BLUES<small>School Management Platform · Rising Beyond Limits</small></div><div class="actions"><span id="signedInLabel">Signed in</span><button class="secondary" id="signOutButton">Sign out</button></div></header>
@@ -256,11 +256,11 @@ async function render(page){
  root.innerHTML=`<div class="panel"><h2>${esc(page)} records</h2><p class="sub">Add a demo record with the button above.</p>${rows.length?`<div class="tablewrap"><table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}<th>Action</th></tr></thead><tbody>${rows.map((r,i)=>`<tr>${cols.map(c=>`<td>${esc(r[c])}</td>`).join('')}<td><button class="secondary" data-delete-page="${esc(page)}" data-delete-index="${i}">Delete</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">No records yet. Tap “+ Add record” to add the first demo record.</div>'}</div>`;
 }
 function addForm(){
- if(['Student Billing','Payments & Receipts','Fee Arrears'].includes($('title').textContent)){document.getElementById('billEntry')?.scrollIntoView({behavior:'smooth'});document.getElementById('paymentEntry')?.scrollIntoView({behavior:'smooth'});return;}
+ if(['Student Billing','Payments & Receipts','Fee Arrears'].some(m=>moduleLabel(m)===$('title').textContent)){document.getElementById('billEntry')?.scrollIntoView({behavior:'smooth'});document.getElementById('paymentEntry')?.scrollIntoView({behavior:'smooth'});return;}
  if($('title').textContent==='Attendance'){document.getElementById('pupilAttendanceClass')?.scrollIntoView({behavior:'smooth',block:'center'});return;}
  if($('title').textContent==='Staff'){staffForm();return;}
  if($('title').textContent==='Parents & Guardians'){guardianForm();return;}
- const page=$('title').textContent,cols=fields[page]||['Name','Date','Notes'];
+ const page=modules.find(m=>moduleLabel(m)===$('title').textContent)||$('title').textContent,cols=fields[page]||['Name','Date','Notes'];
  if(page==='Students'){
   $('content').insertAdjacentHTML('afterbegin',`<div class="panel" id="entry"><h2>Add student to database</h2><p class="sub">This saves to Supabase only if database login and permissions allow it.</p><form id="form"><div class="formrow"><div class="sub" style="flex-basis:100%;padding:8px 0">Student number: <strong>Assigned automatically after saving</strong></div><input name="First name" placeholder="First name" required><input name="Last name" placeholder="Last name" required><label class="sub">Class <select name="Class" id="studentClass" style="display:block;padding:11px;border:1px solid #d8e0eb;border-radius:8px;font:inherit;background:white"><option value="">Loading classes…</option></select></label><select name="Gender" aria-label="Gender" style="padding:11px;border:1px solid #d8e0eb;border-radius:8px;font:inherit;background:white"><option value="">Select gender (optional)</option><option value="Male">Male</option><option value="Female">Female</option></select><label class="sub">Date of birth <input name="Date of birth" type="date" style="display:block;padding:11px;border:1px solid #d8e0eb;border-radius:8px;font:inherit"></label><label class="sub">Admission date <input name="Admission date" type="date" style="display:block;padding:11px;border:1px solid #d8e0eb;border-radius:8px;font:inherit"></label><select name="Status" aria-label="Student status" style="padding:11px;border:1px solid #d8e0eb;border-radius:8px;font:inherit;background:white"><option value="active">Active</option><option value="inactive">Inactive</option><option value="graduated">Graduated</option><option value="transferred">Transferred</option></select></div><div class="actions"><button class="primary">Save student</button><button class="secondary" type="button" id="cancel">Cancel</button></div></form></div>`);
   loadSchoolClasses().then(ok=>{const el=$('studentClass');if(el){el.innerHTML=ok?classOptions():'<option value="">Classes unavailable — try again later</option>';el.disabled=!ok;}});
@@ -341,6 +341,7 @@ async function enterPlatform(session){
  $('connectionStatus').textContent='Signed in · school profile verified';
  go('Dashboard');
 }
+$('resetPasswordButton').onclick=async()=>{const email=$('loginEmail').value.trim();if(!email||!/^\S+@\S+\.\S+$/.test(email)){$('resetPasswordMessage').textContent='Enter your registered school email above first.';return;}const btn=$('resetPasswordButton');btn.disabled=true;const {error}=await supabaseClient.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});btn.disabled=false;$('resetPasswordMessage').textContent=error?'Password reset unavailable: '+error.message:'If this email is registered, check your inbox for the password reset link.';};
 $('loginForm').onsubmit=async e=>{
  e.preventDefault();
  if(!supabaseClient){$('loginMessage').textContent='The secure sign-in service could not start. Refresh the page and try again.';return;}
