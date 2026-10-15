@@ -128,7 +128,7 @@ async function render(page){
   $('pupilAttendanceDate').onchange=loadPupilAttendance;
  }
  if(page==='Attendance'){
-  root.innerHTML='<div class="panel"><h2>Staff Attendance · Live database</h2><p>Loading attendance…</p></div>';
+  // Keep the student register mounted above while adding the staff register.
   const today=new Date();const localDate=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
   root.insertAdjacentHTML('beforeend',`<div class="panel"><h2>Staff Attendance · Live database</h2><p class="sub">Choose a date, then select a status for each staff member. Changes save individually to Supabase.</p><label>Attendance date <input id="attendanceDate" type="date" value="${localDate}"></label><div id="attendanceRegister" style="margin-top:16px">Loading…</div></div>`);
   const loadRegister=async()=>{
