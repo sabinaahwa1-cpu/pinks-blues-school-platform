@@ -226,7 +226,9 @@ async function render(page){
     return;
   }
   const owing=bills.filter(b=>due(b)>0);
-  root.innerHTML=`<div class="panel"><h2>Fee Arrears · Live</h2>${financeTestNotice}${summary}<p class="sub">${owing.length} bill(s) with outstanding balances. Amounts are calculated from recorded bills and payments.</p>${owing.map(b=>`<div class="card" style="margin:10px 0"><b>${esc(studentName(b.student_id))}</b><p>${esc(b.term)} · ${esc(b.academic_year)} · ${esc(b.description)} · Fee month: ${esc(b.fee_month?String(b.fee_month).slice(0,7):'Termly / unspecified')}</p><p><strong>Outstanding: ${money(due(b))}</strong></p></div>`).join('')||'<p>No outstanding bills recorded.</p>'}</div>`;return;
+  const monthlyTotals={};for(const b of owing){const month=b.fee_month?String(b.fee_month).slice(0,7):'Termly / unspecified';monthlyTotals[month]=(monthlyTotals[month]||0)+due(b);}
+  const monthlySummary='<div class="panel"><h2>Outstanding fees by month</h2>'+Object.entries(monthlyTotals).sort((a,b)=>a[0].localeCompare(b[0])).map(([month,total])=>'<p><strong>'+esc(month)+'</strong>: '+money(total)+'</p>').join('')+'</div>';
+  root.innerHTML=monthlySummary+`<div class="panel"><h2>Fee Arrears · Live</h2>${financeTestNotice}${summary}<p class="sub">${owing.length} bill(s) with outstanding balances. Amounts are calculated from recorded bills and payments.</p>${owing.map(b=>`<div class="card" style="margin:10px 0"><b>${esc(studentName(b.student_id))}</b><p>${esc(b.term)} · ${esc(b.academic_year)} · ${esc(b.description)} · Fee month: ${esc(b.fee_month?String(b.fee_month).slice(0,7):'Termly / unspecified')}</p><p><strong>Outstanding: ${money(due(b))}</strong></p></div>`).join('')||'<p>No outstanding bills recorded.</p>'}</div>`;return;
  }
  if(page==='Dashboard'){
   root.innerHTML='<div class="panel"><h2>Live school dashboard</h2><p class="sub">Loading verified database totals…</p></div>';
