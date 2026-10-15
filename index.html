@@ -54,7 +54,7 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 $('nav').innerHTML=modules.map((m,i)=>`<button data-page="${esc(m)}" class="${i===0?'active':''}">${['▦','▣','♙','♧','♟','✓','▤','★','▦','◷','₵','▤','!','♨','▣','⚑','✎','▤','▧','☑','◉','▤','▥','⚙'][i]} ${esc(moduleLabel(m))}</button>`).join('');
 function save(){localStorage.setItem('pb_platform_demo_v1',JSON.stringify(data))}
-function go(page){$('title').textContent=moduleLabel(page);$('subtitle').textContent=desc[page]||'';$('add').hidden=page==='Dashboard';document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page));render(page)}
+function go(page){if(['Student Billing','Payments & Receipts','Fee Arrears'].includes(page)&&!['platform_owner','school_admin','admin'].includes(String(currentProfile?.role||'').toLowerCase())){alert('Finance access restricted to authorized management.');page='Dashboard';}$('title').textContent=moduleLabel(page);$('subtitle').textContent=desc[page]||'';$('add').hidden=page==='Dashboard';document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page));render(page)}
 const SCHOOL_ID='1688afd4-9565-4f3e-8cfb-38cce3f464e3';
 let schoolClasses=[];
 async function loadSchoolClasses(){const {data,error}=await supabaseClient.from('pbis_class_directory').select('class_id,class_name,sort_order').eq('school_id',SCHOOL_ID).order('sort_order');if(error){console.warn('Class directory unavailable',error.message);return false;}schoolClasses=data||[];return true;}
@@ -319,13 +319,14 @@ async function enterPlatform(session){
  if(error){await showLogin('Your account signed in, but the profile could not be verified. Please apply the database security setup file in the GitHub repository, then try again. Details: '+error.message);return;}
  if(!profile){await showLogin('This email is not linked to a school staff profile. Ask the platform owner to set up your profile.');return;}
  const role=String(profile.role||'').trim().toLowerCase();
- const allowed=['platform_owner','platform owner','school administrator','administrator'];
+ const allowed=['platform_owner','platform owner','school_owner','school_admin','admin','school administrator','administrator','teacher','staff'];
  if(String(profile.school_id||'')!==SCHOOL_ID||!allowed.includes(role)){
   await supabaseClient.auth.signOut();
-  await showLogin('Access denied. This account does not have an authorized administrator role for Pinks & Blues International School.');
+  await showLogin('Access denied. This account does not have an authorized school role for Pinks & Blues International School.');
   return;
  }
  currentProfile=profile;
+ document.querySelectorAll('[data-page]').forEach(btn=>{if(['Student Billing','Payments & Receipts','Fee Arrears'].includes(btn.dataset.page))btn.hidden=!['platform_owner','school_admin','admin'].includes(role);});
  $('signedInLabel').textContent=profile.full_name||profile.email||session.user.email;
  $('loginScreen').classList.add('hidden');$('appShell').classList.remove('hidden');
  $('connectionStatus').textContent='Signed in · school profile verified';
