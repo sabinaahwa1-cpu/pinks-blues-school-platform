@@ -104,7 +104,7 @@ async function render(page){
  }
  if(page==='Student Assessments'||page==='Report Cards'){
   root.innerHTML='<div class="panel"><h2>Student assessments and reports</h2><p>Loading school records…</p></div>';
-  const [sr,ar]=await Promise.all([supabaseClient.from('students').select('student_id,student_number,first_name,last_name,pbis_class_id').eq('school_id',SCHOOL_ID).limit(500),supabaseClient.from('pbis_module_records').select('record_id,payload,created_at').eq('school_id',SCHOOL_ID).eq('module','Student Assessments').order('created_at',{ascending:false}).limit(1000)]);
+  const [sr,ar]=await Promise.all([supabaseClient.from('pbis_students').select('student_id,student_number,first_name,last_name,pbis_class_id').eq('school_id',SCHOOL_ID).limit(500),supabaseClient.from('pbis_module_records').select('record_id,payload,created_at').eq('school_id',SCHOOL_ID).eq('module','Student Assessments').order('created_at',{ascending:false}).limit(1000)]);
   if(sr.error||ar.error){root.innerHTML='<div class="panel"><h2>Assessments</h2><p>'+esc(sr.error?.message||ar.error?.message)+'</p></div>';return;}
   const students=sr.data||[],assessments=ar.data||[];
   const studentName=s=>s.student_number+' · '+s.first_name+' '+s.last_name;
@@ -119,7 +119,7 @@ async function render(page){
  if(page==='Students'){
   if(!supabaseClient){root.innerHTML='<div class="panel"><h2>Students</h2><p class="empty">Supabase is not configured. Please check the connection setup.</p></div>';return;}
   root.innerHTML='<div class="panel"><h2>Student records</h2><p class="empty">Loading student records from Supabase…</p></div>';
-  const {data:rows,error}=await supabaseClient.from('students').select('*').eq('school_id',SCHOOL_ID).limit(200);
+  const {data:rows,error}=await supabaseClient.from('pbis_students').select('*').eq('school_id',SCHOOL_ID).limit(200);
   if(error){root.innerHTML=`<div class="panel"><h2>Student records</h2><p class="empty">The website could not read student records from Supabase yet.</p><p class="sub">Details: ${esc(error.message)}. This may mean login or database permissions still need to be configured. No records were changed.</p></div>`;return;}
   await loadSchoolClasses();
   liveStudents=rows||[];
@@ -132,7 +132,7 @@ async function render(page){
   root.innerHTML='<div class="panel"><h2>Parents & Guardians</h2><p>Loading live records…</p></div>';
   const {data:guardians,error}=await supabaseClient.from('pbis_guardians').select('*').eq('school_id',SCHOOL_ID).order('created_at',{ascending:false}).limit(200);
   if(error){root.innerHTML='<div class="panel">Unable to load guardians: '+esc(error.message)+'</div>';return;}
-  const {data:students,error:studentError}=await supabaseClient.from('students').select('student_id,student_number,first_name,last_name').eq('school_id',SCHOOL_ID).limit(200);
+  const {data:students,error:studentError}=await supabaseClient.from('pbis_students').select('student_id,student_number,first_name,last_name').eq('school_id',SCHOOL_ID).limit(200);
   if(studentError){root.innerHTML='<div class="panel">'+esc(studentError.message)+'</div>';return;}
   guardianStudents=students||[];liveGuardians=guardians||[];
   root.innerHTML=`<div class="panel"><h2>Parents & Guardians · Live database</h2><input id="guardianSearch" placeholder="Search guardians" style="padding:10px;width:100%;margin:12px 0"><div class="tablewrap"><table><thead><tr><th>Name</th><th>Student</th><th>Relationship</th><th>Phone</th><th>Emergency</th><th>Action</th></tr></thead><tbody>${liveGuardians.map((g,i)=>`<tr><td>${esc(g.full_name)}</td><td>${esc(guardianStudents.find(s=>s.student_id===g.student_id)?.student_number||'')}</td><td>${esc(g.relationship)}</td><td>${esc(g.phone||'')}</td><td>${g.emergency_contact?'Yes':'No'}</td><td><button class="secondary" data-guardian-edit="${i}">Edit</button></td></tr>`).join('')}</tbody></table></div>${liveGuardians.length?'':'<p>No guardian records yet.</p>'}</div>`;
@@ -150,7 +150,7 @@ async function render(page){
     if(!cls||!date){box.textContent='Select a class and date to begin.';return;}
     box.textContent='Loading class register…';
     const [studentsResult,attendanceResult]=await Promise.all([
-      supabaseClient.from('students').select('student_id,student_number,first_name,last_name').eq('school_id',SCHOOL_ID).eq('pbis_class_id',cls).order('last_name').limit(300),
+      supabaseClient.from('pbis_students').select('student_id,student_number,first_name,last_name').eq('school_id',SCHOOL_ID).eq('pbis_class_id',cls).order('last_name').limit(300),
       supabaseClient.from('pbis_student_attendance').select('attendance_id,student_id,attendance_status').eq('school_id',SCHOOL_ID).eq('attendance_date',date).limit(1000)
     ]);
     if(studentsResult.error||attendanceResult.error){box.textContent='Unable to load register: '+(studentsResult.error?.message||attendanceResult.error?.message);return;}
@@ -217,7 +217,7 @@ async function render(page){
 
  if(page==='Student ID Cards'){
   root.innerHTML='<div class="panel"><h2>Student ID card designer</h2><p>Loading student directory…</p></div>';
-  const {data:students,error}=await supabaseClient.from('students').select('student_id,student_number,first_name,last_name').eq('school_id',SCHOOL_ID).order('student_number',{ascending:true}).limit(500);
+  const {data:students,error}=await supabaseClient.from('pbis_students').select('student_id,student_number,first_name,last_name').eq('school_id',SCHOOL_ID).order('student_number',{ascending:true}).limit(500);
   if(error){root.innerHTML='<div class="panel"><h2>Student ID card designer</h2><p>'+esc(error.message)+'</p></div>';return;}
   const list=students||[];
   if(!list.length){root.innerHTML='<div class="panel"><h2>Student ID card designer</h2><p>Add a test student first to preview a card.</p></div>';return;}
@@ -264,7 +264,7 @@ async function render(page){
  if(['Student Billing','Payments & Receipts','Fee Arrears'].includes(page)){
   root.innerHTML='<div class="panel"><h2>School finance · Live database</h2><p>Loading…</p></div>';
   const [s,b,p]=await Promise.all([
-    supabaseClient.from('students').select('student_id,student_number,first_name,last_name').eq('school_id',SCHOOL_ID).limit(500),
+    supabaseClient.from('pbis_students').select('student_id,student_number,first_name,last_name').eq('school_id',SCHOOL_ID).limit(500),
     supabaseClient.from('pbis_fee_bills').select('*').eq('school_id',SCHOOL_ID).order('created_at',{ascending:false}).limit(1000),
     supabaseClient.from('pbis_fee_payments').select('*').eq('school_id',SCHOOL_ID).order('created_at',{ascending:false}).limit(1000)
   ]);
@@ -358,7 +358,7 @@ function addForm(){
   $('content').insertAdjacentHTML('afterbegin',`<div class="panel" id="entry"><h2>Add student to database</h2><p class="sub">This saves to Supabase only if database login and permissions allow it.</p><form id="form"><div class="formrow"><div class="sub" style="flex-basis:100%;padding:8px 0">Student number: <strong>Assigned automatically after saving</strong></div><input name="First name" placeholder="First name" required><input name="Last name" placeholder="Last name" required><label class="sub">Class <select name="Class" id="studentClass" style="display:block;padding:11px;border:1px solid #d8e0eb;border-radius:8px;font:inherit;background:white"><option value="">Loading classes…</option></select></label><select name="Gender" aria-label="Gender" style="padding:11px;border:1px solid #d8e0eb;border-radius:8px;font:inherit;background:white"><option value="">Select gender (optional)</option><option value="Male">Male</option><option value="Female">Female</option></select><label class="sub">Date of birth <input name="Date of birth" type="date" style="display:block;padding:11px;border:1px solid #d8e0eb;border-radius:8px;font:inherit"></label><label class="sub">Admission date <input name="Admission date" type="date" style="display:block;padding:11px;border:1px solid #d8e0eb;border-radius:8px;font:inherit"></label><select name="Status" aria-label="Student status" style="padding:11px;border:1px solid #d8e0eb;border-radius:8px;font:inherit;background:white"><option value="active">Active</option><option value="inactive">Inactive</option><option value="graduated">Graduated</option><option value="transferred">Transferred</option></select></div><div class="actions"><button class="primary">Save student</button><button class="secondary" type="button" id="cancel">Cancel</button></div></form></div>`);
   loadSchoolClasses().then(ok=>{const el=$('studentClass');if(el){el.innerHTML=ok?classOptions():'<option value="">Classes unavailable — try again later</option>';el.disabled=!ok;}});
   $('cancel').onclick=()=>$('entry').remove();
-  $('form').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);const record={school_id:SCHOOL_ID,first_name:String(fd.get('First name')||'').trim(),last_name:String(fd.get('Last name')||'').trim(),gender:String(fd.get('Gender')||'').trim()||null,date_of_birth:String(fd.get('Date of birth')||'')||null,pbis_class_id:String(fd.get('Class')||'')||null,admission_date:String(fd.get('Admission date')||'')||null,status:String(fd.get('Status')||'active').trim()||'active'};const submit=e.target.querySelector('button[type="submit"],button:not([type])');if(submit){submit.disabled=true;submit.textContent='Checking…'}if(submit)submit.textContent='Saving…';const {data:saved,error}=await supabaseClient.from('students').insert(record).select('student_number').single();if(error){alert('Student was not saved. Supabase says: '+error.message+'\n\nNo local-only copy was created. Login or database permissions may need setup.');if(submit){submit.disabled=false;submit.textContent='Save student'}return;}alert('Student saved to Supabase. Student number: '+(saved?.student_number||'See student list'));render('Students');};
+  $('form').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);const record={school_id:SCHOOL_ID,first_name:String(fd.get('First name')||'').trim(),last_name:String(fd.get('Last name')||'').trim(),gender:String(fd.get('Gender')||'').trim()||null,date_of_birth:String(fd.get('Date of birth')||'')||null,pbis_class_id:String(fd.get('Class')||'')||null,admission_date:String(fd.get('Admission date')||'')||null,status:String(fd.get('Status')||'active').trim()||'active'};const submit=e.target.querySelector('button[type="submit"],button:not([type])');if(submit){submit.disabled=true;submit.textContent='Checking…'}if(submit)submit.textContent='Saving…';const {data:saved,error}=await supabaseClient.from('pbis_students').insert(record).select('student_number').single();if(error){alert('Student was not saved. Supabase says: '+error.message+'\n\nNo local-only copy was created. Login or database permissions may need setup.');if(submit){submit.disabled=false;submit.textContent='Save student'}return;}alert('Student saved to Supabase. Student number: '+(saved?.student_number||'See student list'));render('Students');};
   return;
  }
  $('content').insertAdjacentHTML('afterbegin',`<div class="panel" id="entry"><h2>Add ${esc(page)} record</h2><form id="form"><div class="formrow">${cols.map((c,i)=>`<input name="${esc(c)}" placeholder="${esc(c)}" ${i===0?'required':''}>`).join('')}</div><div class="actions"><button class="primary">Save record</button><button class="secondary" type="button" id="cancel">Cancel</button></div></form></div>`);
@@ -367,7 +367,7 @@ function addForm(){
 }
 async function guardianForm(index=null){
  const g=index===null?null:liveGuardians[index];
- const {data:students,error}=await supabaseClient.from('students').select('student_id,student_number,first_name,last_name').eq('school_id',SCHOOL_ID).limit(200);
+ const {data:students,error}=await supabaseClient.from('pbis_students').select('student_id,student_number,first_name,last_name').eq('school_id',SCHOOL_ID).limit(200);
  if(error||!students?.length){alert(error?.message||'Register a test student first.');return;}
  $('entry')?.remove();
  const opts=students.map(s=>`<option value="${esc(s.student_id)}" ${g?.student_id===s.student_id?'selected':''}>${esc(s.student_number+' · '+s.first_name+' '+s.last_name)}</option>`).join('');
@@ -399,7 +399,7 @@ function editStudent(i){
   const changes={first_name:String(fd.get('first_name')||'').trim(),last_name:String(fd.get('last_name')||'').trim(),gender:String(fd.get('gender')||'')||null,date_of_birth:String(fd.get('date_of_birth')||'')||null,pbis_class_id:String(fd.get('pbis_class_id')||'')||null,admission_date:String(fd.get('admission_date')||'')||null,status:String(fd.get('status')||'active')};
   if(!changes.first_name||!changes.last_name){alert('First and last name are required.');return;}
   const btn=e.target.querySelector('button[type="submit"]');btn.disabled=true;btn.textContent='Updating…';
-  const {data:updated,error}=await supabaseClient.from('students').update(changes).eq('student_id',s.student_id).eq('school_id',SCHOOL_ID).select('student_id');
+  const {data:updated,error}=await supabaseClient.from('pbis_students').update(changes).eq('student_id',s.student_id).eq('school_id',SCHOOL_ID).select('student_id');
   if(error){alert('Update failed: '+error.message);btn.disabled=false;btn.textContent='Update student';return;}
   if(!updated?.length){alert('No record was updated. Please check the student update policy in Supabase.');btn.disabled=false;btn.textContent='Update student';return;}
   alert('Student updated successfully.');render('Students');
@@ -407,7 +407,7 @@ function editStudent(i){
 }
 function delRow(page,i){if(confirm('Delete this demo record?')){data[page].splice(i,1);save();render(page)}}
 $('nav').onclick=e=>{const b=e.target.closest('[data-page]');if(b)go(b.dataset.page)};
-$('content').onclick=async e=>{const se=e.target.closest('[data-staff-edit]');if(se){staffForm(Number(se.dataset.staffEdit));return;}const ge=e.target.closest('[data-guardian-edit]');if(ge){guardianForm(Number(ge.dataset.guardianEdit));return;}const edit=e.target.closest('[data-live-edit]');if(edit){editStudent(Number(edit.dataset.liveEdit));return;}const live=e.target.closest('[data-live-delete]');if(live){if(!confirm('Delete this student from the live database? This cannot be undone.'))return;const row=liveStudents[Number(live.dataset.liveDelete)];const id=row?.student_id??row?.id;if(!id){alert('No student ID column was found. Nothing was deleted.');return;}const key=row?.student_id!==undefined?'student_id':'id';const {error}=await supabaseClient.from('students').delete().eq(key,id).eq('school_id',SCHOOL_ID);if(error){alert('Student was not deleted: '+error.message);return;}render('Students');return;}const b=e.target.closest('[data-delete-page]');if(b)delRow(b.dataset.deletePage,Number(b.dataset.deleteIndex))};
+$('content').onclick=async e=>{const se=e.target.closest('[data-staff-edit]');if(se){staffForm(Number(se.dataset.staffEdit));return;}const ge=e.target.closest('[data-guardian-edit]');if(ge){guardianForm(Number(ge.dataset.guardianEdit));return;}const edit=e.target.closest('[data-live-edit]');if(edit){editStudent(Number(edit.dataset.liveEdit));return;}const live=e.target.closest('[data-live-delete]');if(live){if(!confirm('Delete this student from the live database? This cannot be undone.'))return;const row=liveStudents[Number(live.dataset.liveDelete)];const id=row?.student_id??row?.id;if(!id){alert('No student ID column was found. Nothing was deleted.');return;}const key=row?.student_id!==undefined?'student_id':'id';const {error}=await supabaseClient.from('pbis_students').delete().eq(key,id).eq('school_id',SCHOOL_ID);if(error){alert('Student was not deleted: '+error.message);return;}render('Students');return;}const b=e.target.closest('[data-delete-page]');if(b)delRow(b.dataset.deletePage,Number(b.dataset.deleteIndex))};
 $('add').onclick=addForm;
 $('export').onclick=()=>{if(!confirm('This exports only older local browser draft data, NOT your live Supabase school records. Continue?'))return;const a=document.createElement('a'),u=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.href=u;a.download='pinks-blues-local-draft.json';a.click();URL.revokeObjectURL(u)};
 async function showLogin(message=''){
@@ -429,7 +429,7 @@ async function enterPlatform(session){
   authorizedSchoolId=membership.school_id;
  }
  if(authorizedSchoolId!==SCHOOL_ID){await showLogin('Your school membership does not match this school.');return;}
- const profile={full_name:account.full_name,email:session.user.email,role,school_id:authorizedSchoolId,status:'active'};
+ const profile={user_id:session.user.id,full_name:account.full_name,email:session.user.email,role,school_id:authorizedSchoolId,status:'active'};
  currentProfile=profile;
  document.querySelectorAll('[data-page]').forEach(btn=>{btn.hidden=restrictedForStaff.includes(btn.dataset.page)&&!financeRoles.includes(role);});$('add').hidden=!financeRoles.includes(role);
  $('signedInLabel').textContent=profile.full_name||profile.email||session.user.email;
