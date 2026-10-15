@@ -341,6 +341,7 @@ async function enterPlatform(session){
  $('connectionStatus').textContent='Signed in · school profile verified';
  go('Dashboard');
 }
+async function showPasswordRecovery(){await showLogin('Set a new password for your existing school account.');const area=$('resetPasswordMessage');area.innerHTML='<label>New password <input type="password" id="newRecoveryPassword" minlength="12" autocomplete="new-password" placeholder="At least 12 characters"></label><button class="primary" id="saveRecoveryPassword" type="button">Save new password</button>';const btn=$('saveRecoveryPassword');btn.onclick=async()=>{const pass=$('newRecoveryPassword').value;if(pass.length<12){$('loginMessage').textContent='Use at least 12 characters.';return;}btn.disabled=true;const {error}=await supabaseClient.auth.updateUser({password:pass});btn.disabled=false;if(error){$('loginMessage').textContent='Password change failed: '+error.message;return;}area.textContent='Password updated. You can now sign in.';$('loginMessage').textContent='Password changed successfully.';await supabaseClient.auth.signOut();};}
 $('resetPasswordButton').onclick=async()=>{const email=$('loginEmail').value.trim();if(!email||!/^\S+@\S+\.\S+$/.test(email)){$('resetPasswordMessage').textContent='Enter your registered school email above first.';return;}const btn=$('resetPasswordButton');btn.disabled=true;const {error}=await supabaseClient.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});btn.disabled=false;$('resetPasswordMessage').textContent=error?'Password reset unavailable: '+error.message:'If this email is registered, check your inbox for the password reset link.';};
 $('loginForm').onsubmit=async e=>{
  e.preventDefault();
@@ -358,6 +359,7 @@ $('loginForm').onsubmit=async e=>{
  finally{btn.disabled=false;btn.textContent='Sign in with password';}
 };
 $('signOutButton').onclick=async()=>{if(supabaseClient)await supabaseClient.auth.signOut();currentProfile=null;await showLogin('You have signed out.');};
+supabaseClient?.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY')setTimeout(()=>showPasswordRecovery(),0);});
 async function initializeAuth(){
  if(!supabaseClient){await showLogin('Secure sign-in is unavailable because the Supabase client could not start.');return;}
  await showLogin('Checking your sign-in session…');
