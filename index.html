@@ -448,9 +448,9 @@ $('loginForm').onsubmit=async e=>{
  $('loginMessage').textContent='Checking your login and password…';
  try{
   let authData,error;
-  if(login.includes('@'))({data:authData,error}=await supabaseClient.auth.signInWithPassword({email:login,password}));
+  if(email.includes('@'))({data:authData,error}=await supabaseClient.auth.signInWithPassword({email,password}));
   else{
-   const response=await fetch(SUPABASE_URL+'/functions/v1/pbis-staff-login',{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_PUBLISHABLE_KEY},body:JSON.stringify({login,password})});
+   const response=await fetch(SUPABASE_URL+'/functions/v1/pbis-staff-login',{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_PUBLISHABLE_KEY},body:JSON.stringify({login:email,password})});
    const result=await response.json();if(!response.ok)throw Error(result.error||'Invalid credentials');
    ({data:authData,error}=await supabaseClient.auth.setSession({access_token:result.access_token,refresh_token:result.refresh_token}));
   }
