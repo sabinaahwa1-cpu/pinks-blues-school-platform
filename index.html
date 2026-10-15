@@ -17,6 +17,10 @@ button{cursor:pointer}.primary{background:var(--pink);color:#fff;border:0;border
 .formrow{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.formrow input{border:1px solid #d8e0eb;border-radius:8px;padding:10px;font:inherit;min-width:145px;flex:1}
 .note{background:#fff8e9;border:1px solid #f1dfb5;border-radius:9px;padding:12px;font-size:12px;line-height:1.5;color:#72551b;margin-top:18px}.status{font-size:12px;padding:7px 10px;border-radius:20px;background:#fff;border:1px solid var(--line)}
 @media(max-width:800px){.layout{grid-template-columns:1fr}aside{border-right:0;border-bottom:1px solid var(--line)}nav{display:flex;gap:4px;overflow:auto}nav button{width:auto;white-space:nowrap}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}main{padding:15px}}
+
+/* Collapsible vertical management menu */
+.sideHeading{font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--muted);padding:12px 10px}.menuToggle{display:none!important}.layout{min-width:0}.layout main{min-width:0}
+@media(max-width:800px){.layout{display:block;min-height:calc(100vh - 60px)}.menuToggle{display:inline-flex!important;margin-bottom:12px;align-items:center;gap:8px}#sideMenu{display:none;position:fixed;z-index:1001;top:0;left:0;bottom:0;width:min(82vw,300px);box-shadow:8px 0 40px #142b4a33;overflow-y:auto;border-right:1px solid var(--line)}.layout.menuOpen #sideMenu{display:block}#sideMenu nav{display:block;overflow:visible}#sideMenu nav button{display:block;width:100%;white-space:normal;text-align:left}#menuBackdrop{display:none}.layout.menuOpen~#menuBackdrop{display:block;position:fixed;inset:0;background:#142b4a88;z-index:1000}}
 </style>
 </head>
 <body>
@@ -28,10 +32,10 @@ button{cursor:pointer}.primary{background:var(--pink);color:#fff;border:0;border
 </section>
 <div id="appShell" class="hidden">
 <header><div class="brand">PINKS & BLUES<small>School Management Platform · Rising Beyond Limits</small></div><div class="actions"><span id="signedInLabel">Signed in</span><button class="secondary" id="signOutButton">Sign out</button></div></header>
-<div class="layout"><aside><nav id="nav"></nav></aside><main>
+<div class="layout" id="appLayout"><aside id="sideMenu" aria-label="School management modules"><div class="sideHeading">MANAGEMENT MENU</div><nav id="nav"></nav></aside><main><button class="secondary menuToggle" id="menuToggle" type="button" aria-controls="sideMenu" aria-expanded="false">☰ Menu</button>
 <div class="topline"><div><h1 id="title">Dashboard</h1><div class="sub" id="subtitle">Overview of school operations.</div></div><div class="actions"><span class="status" id="connectionStatus">Checking Supabase setup…</span><button class="secondary" id="export">Export demo data</button><button class="primary" id="add" hidden>+ Add record</button></div></div>
 <div id="content"></div><div class="note"><b>Current status:</b> Password sign-in, student records, class selection, and parent/guardian records are connected to Supabase. Student registration and editing have been tested. Guardian editing, deletion permissions, and broader security checks still need testing. General modules now save school records in Supabase; specialized workflows are still under development.</div><div class="note"><b>Important:</b> Do not enter real pupil, family, staff or financial information yet. Students and Parents & Guardians are connected to the database, but comprehensive security and permissions testing is not yet complete. General modules now use Supabase storage, but specialized workflows and full multi-school support still require completion.</div>
-</main></div>
+</main></div><div id="menuBackdrop" aria-hidden="true"></div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="document.getElementById('loginMessage').textContent='The sign-in service could not load. Check your internet connection and reload.'"></script>
 <script>
@@ -55,8 +59,12 @@ let data={};try{data=JSON.parse(localStorage.getItem('pb_platform_demo_v1')||'{}
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 $('nav').innerHTML=modules.map((m,i)=>`<button data-page="${esc(m)}" class="${i===0?'active':''}">${['▦','▣','♙','♧','♟','✓','▤','★','▦','◷','₵','▤','!','♨','▣','⚑','✎','▤','▧','☑','◉','▤','▥','⚙'][i]} ${esc(moduleLabel(m))}</button>`).join('');
+function closeSideMenu(){const layout=$('appLayout');layout.classList.remove('menuOpen');$('menuToggle').setAttribute('aria-expanded','false');}
+$('menuToggle').onclick=()=>{const layout=$('appLayout'),open=layout.classList.toggle('menuOpen');$('menuToggle').setAttribute('aria-expanded',String(open));};
+$('menuBackdrop').onclick=closeSideMenu;
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSideMenu();});
 function save(){localStorage.setItem('pb_platform_demo_v1',JSON.stringify(data))}
-function go(page){if(restrictedForStaff.includes(page)&&!financeRoles.includes(String(currentProfile?.role||'').toLowerCase())){alert('This module is not yet enabled for staff. Only the read-only dashboard is available until permissions are verified.');page='Dashboard';}$('title').textContent=moduleLabel(page);$('subtitle').textContent=desc[page]||'';$('add').hidden=page==='Dashboard'||!financeRoles.includes(String(currentProfile?.role||'').toLowerCase());document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page));render(page)}
+function go(page){closeSideMenu();if(restrictedForStaff.includes(page)&&!financeRoles.includes(String(currentProfile?.role||'').toLowerCase())){alert('This module is not yet enabled for staff. Only the read-only dashboard is available until permissions are verified.');page='Dashboard';}$('title').textContent=moduleLabel(page);$('subtitle').textContent=desc[page]||'';$('add').hidden=page==='Dashboard'||!financeRoles.includes(String(currentProfile?.role||'').toLowerCase());document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page));render(page)}
 const SCHOOL_ID='1688afd4-9565-4f3e-8cfb-38cce3f464e3';
 let schoolClasses=[];
 async function loadSchoolClasses(){const {data,error}=await supabaseClient.from('pbis_class_directory').select('class_id,class_name,sort_order').eq('school_id',SCHOOL_ID).order('sort_order');if(error){console.warn('Class directory unavailable',error.message);return false;}schoolClasses=data||[];return true;}
