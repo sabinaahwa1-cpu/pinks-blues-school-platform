@@ -27,6 +27,11 @@ button{cursor:pointer}.primary{background:var(--pink);color:#fff;border:0;border
 .idCardHead{color:white;display:flex;align-items:center;gap:14px;padding:5% 6%;min-height:29%}.idCardHead strong{display:block;font-size:clamp(14px,3.3vw,22px);letter-spacing:.055em}.idCardHead small{display:block;font-size:clamp(8px,1.7vw,12px);letter-spacing:.13em}.idCardMark{width:45px;height:45px;flex:none;border-radius:12px;border:2px solid #ffffffa8;display:grid;place-items:center;font-weight:900;font-size:15px;background:#ffffff2b}
 .idCardBody{display:flex;align-items:center;gap:5%;padding:4% 6%;flex:1;min-height:0}.idCardPortrait{width:29%;height:100%;min-height:90px;max-height:140px;flex:none;border-radius:9px;background:#f1f3f8;border:2px solid #e7eaf0;overflow:hidden;display:grid;place-items:center}.idCardPortrait img{width:100%;height:100%;object-fit:cover}.idSilhouette{font-size:45px;opacity:.55}.idCardDetails{min-width:0}.idCardTag{font-weight:900;letter-spacing:.08em;font-size:clamp(8px,1.65vw,11px)}.idCardName{font-weight:850;color:#172e50;font-size:clamp(16px,3.5vw,25px);line-height:1.16;margin:10px 0;overflow-wrap:anywhere}.idCardNumber{font-size:clamp(10px,2vw,13px);color:#536074}.idCardFoot{color:#fff;display:flex;justify-content:space-between;gap:8px;padding:2.5% 6%;font-size:clamp(8px,1.6vw,11px);font-weight:800;letter-spacing:.06em}
 @media(max-width:420px){.idCardMark{width:33px;height:33px;font-size:11px}.idCardPortrait{min-height:65px}.idCardHead{gap:8px}.idCardName{margin:5px 0}}
+
+.idCardExtra{font-size:clamp(8px,1.5vw,11px);color:#596579;margin-top:7px;display:flex;gap:10px;flex-wrap:wrap}
+.idDesign-modern{flex-direction:row}.idCardSide{width:35%;padding:5%;display:flex;flex-direction:column;align-items:center;justify-content:space-around;color:white;gap:8px}.idCardSide .idCardPortrait{width:100%;height:58%;min-height:0;max-height:none;background:white}.idCardSide .idCardMark{flex:none}.idCardSide small{font-size:10px;letter-spacing:.1em;font-weight:800}.idCardModernMain{flex:1;padding:5% 5%;display:flex;flex-direction:column;justify-content:space-between;min-width:0}.idCardModernSchool{font-size:clamp(13px,2.7vw,20px);font-weight:900;color:#172e50;line-height:1.15}.idCardModernSchool small{font-size:clamp(8px,1.6vw,11px);letter-spacing:.1em}.idCardModernMain .idCardName{margin:5px 0}.idCardModernFoot{font-size:10px;font-weight:800;letter-spacing:.07em}
+.idDesign-crest{background:#fffaf3}.idCardCrestTop{display:flex;align-items:center;justify-content:center;gap:12px;text-align:left;padding:4% 5%;border-bottom:5px solid}.idCardCrestTop strong{display:block;color:#172e50;font-size:clamp(14px,3vw,20px);letter-spacing:.06em}.idCardCrestTop small{display:block;color:#596579;font-size:clamp(8px,1.6vw,11px);letter-spacing:.09em}.idCardCrestTop .idCardMark{color:white}.idCardCrestBody{display:flex;gap:6%;align-items:center;flex:1;min-height:0;padding:3% 7%}.idCardCrestBody .idCardPortrait{height:100%;min-height:70px;max-height:130px;width:28%}.idCardCrestBody .idCardDetails{flex:1}.idCardCrestFoot{color:white;text-align:center;padding:2.5%;font-size:clamp(8px,1.7vw,11px);font-weight:800;letter-spacing:.08em}
+@media print{.idCardPreview{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
 </style>
 </head>
 <body>
@@ -216,16 +221,27 @@ async function render(page){
   const list=students||[];
   if(!list.length){root.innerHTML='<div class="panel"><h2>Student ID card designer</h2><p>Add a test student first to preview a card.</p></div>';return;}
   const palettes=[['Classic pink & blue','#dc548b','#2466ac'],['Royal blue','#234b95','#112d58'],['Emerald','#178568','#12524c'],['Purple','#7854ac','#40327b'],['Gold & navy','#d49b34','#172e50'],['Coral','#e36b60','#9b3e64']];
-  root.innerHTML='<div class="panel"><h2>Student ID card designer</h2><p class="sub">Choose a student, select a colour theme, add a photograph for this preview, and print a school ID card. Photographs selected here stay on this device and are not uploaded to the school database.</p><div class="formrow"><label>Student<select id="cardStudent">'+list.map(s=>'<option value="'+esc(s.student_id)+'">'+esc(s.first_name+' '+s.last_name+' · '+s.student_number)+'</option>').join('')+'</select></label><label>Colour theme<select id="cardTheme">'+palettes.map((p,i)=>'<option value="'+i+'">'+esc(p[0])+'</option>').join('')+'</select></label><label>Primary colour<input id="cardPrimary" type="color" value="#dc548b"></label><label>Secondary colour<input id="cardSecondary" type="color" value="#2466ac"></label><label>Student photo (optional)<input id="cardPhoto" type="file" accept="image/png,image/jpeg,image/webp"></label></div><div class="actions"><button id="cardPrint" class="primary" type="button">Print ID card</button><button id="cardResetPhoto" class="secondary" type="button">Remove photo</button></div><p id="cardMessage" role="status"></p><div id="cardPreview" class="idCardPreview" aria-label="Student ID card preview"></div></div>';
+  root.innerHTML='<div class="panel"><h2>Student ID card designer</h2><p class="sub">Choose one of three card designs. Select a student to fill the fields automatically, or edit the details below; the printout uses exactly what you see in the preview. Photographs selected here stay on this device and are not uploaded to the school database.</p><div class="formrow"><label>Student<select id="cardStudent">'+list.map(s=>'<option value="'+esc(s.student_id)+'">'+esc(s.first_name+' '+s.last_name+' · '+s.student_number)+'</option>').join('')+'</select></label><label>Card design<select id="cardDesign"><option value="classic">1 · Classic horizontal</option><option value="modern">2 · Modern side panel</option><option value="crest">3 · Prestige crest</option></select></label><label>Colour theme<select id="cardTheme">'+palettes.map((p,i)=>'<option value="'+i+'">'+esc(p[0])+'</option>').join('')+'</select></label><label>Primary colour<input id="cardPrimary" type="color" value="#dc548b"></label><label>Secondary colour<input id="cardSecondary" type="color" value="#2466ac"></label><label>Student name<input id="cardName" maxlength="100" autocomplete="off"></label><label>Student ID<input id="cardNumber" maxlength="60" autocomplete="off"></label><label>Class / grade<input id="cardClass" maxlength="60" placeholder="e.g. Basic 4"></label><label>Academic year<input id="cardYear" maxlength="30" placeholder="e.g. 2026/2027"></label><label>Student photo (optional)<input id="cardPhoto" type="file" accept="image/png,image/jpeg,image/webp"></label></div><div class="actions"><button id="cardPrint" class="primary" type="button">Print ID card</button><button id="cardResetPhoto" class="secondary" type="button">Remove photo</button></div><p id="cardMessage" role="status"></p><div id="cardPreview" class="idCardPreview" aria-label="Student ID card preview"></div></div>';
   let photo='';
+  const fillStudent=()=>{const s=selected();$('cardName').value=[s.first_name,s.last_name].filter(Boolean).join(' ');$('cardNumber').value=s.student_number||'';$('cardClass').value='';paint();};
   const selected=()=>list.find(s=>s.student_id===$('cardStudent').value)||list[0];
   function paint(){
-   const s=selected(),primary=$('cardPrimary').value,secondary=$('cardSecondary').value;
-   const full=esc(s.first_name+' '+s.last_name),num=esc(s.student_number||'Not assigned');
+   const primary=$('cardPrimary').value,secondary=$('cardSecondary').value,design=$('cardDesign').value;
+   const full=esc($('cardName').value.trim()||'Student name'),num=esc($('cardNumber').value.trim()||'Not assigned');
+   const grade=esc($('cardClass').value.trim()||'—'),year=esc($('cardYear').value.trim()||'—');
    const imagePart=photo?'<img alt="Student portrait" src="'+photo+'">':'<span class="idSilhouette" aria-label="No photograph">👤</span>';
-   $('cardPreview').innerHTML='<div class="idCardHead" style="background:linear-gradient(120deg,'+primary+','+secondary+')"><div class="idCardMark">P&B</div><div><strong>PINKS & BLUES</strong><small>INTERNATIONAL SCHOOL</small></div></div><div class="idCardBody"><div class="idCardPortrait">'+imagePart+'</div><div class="idCardDetails"><div class="idCardTag" style="color:'+secondary+'">STUDENT IDENTIFICATION</div><div class="idCardName">'+full+'</div><div class="idCardNumber">ID NO. <strong>'+num+'</strong></div></div></div><div class="idCardFoot" style="background:'+secondary+'"><span>RISING BEYOND LIMITS</span><span>STUDENT CARD</span></div>';
+   const header='<div class="idCardHead" style="background:linear-gradient(120deg,'+primary+','+secondary+')"><div class="idCardMark">P&B</div><div><strong>PINKS & BLUES</strong><small>INTERNATIONAL SCHOOL</small></div></div>';
+   const portrait='<div class="idCardPortrait">'+imagePart+'</div>';
+   const details='<div class="idCardDetails"><div class="idCardTag" style="color:'+secondary+'">STUDENT IDENTIFICATION</div><div class="idCardName">'+full+'</div><div class="idCardNumber">ID NO. <strong>'+num+'</strong></div><div class="idCardExtra">CLASS: '+grade+' <span>YEAR: '+year+'</span></div></div>';
+   const footer='<div class="idCardFoot" style="background:'+secondary+'"><span>RISING BEYOND LIMITS</span><span>STUDENT CARD</span></div>';
+   if(design==='modern')$('cardPreview').innerHTML='<div class="idCardSide" style="background:linear-gradient(160deg,'+primary+','+secondary+')"><div class="idCardMark">P&B</div>'+portrait+'<small>STUDENT</small></div><div class="idCardModernMain"><div class="idCardModernSchool">PINKS & BLUES<br><small>INTERNATIONAL SCHOOL</small></div>'+details+'<div class="idCardModernFoot" style="color:'+secondary+'">RISING BEYOND LIMITS</div></div>';
+   else if(design==='crest')$('cardPreview').innerHTML='<div class="idCardCrestTop" style="border-color:'+primary+'"><div class="idCardMark" style="background:'+secondary+'">P&B</div><div><strong>PINKS & BLUES</strong><small>INTERNATIONAL SCHOOL</small></div></div><div class="idCardCrestBody">'+portrait+details+'</div><div class="idCardCrestFoot" style="background:linear-gradient(90deg,'+secondary+','+primary+')">STUDENT IDENTITY CARD · RISING BEYOND LIMITS</div>';
+   else $('cardPreview').innerHTML=header+'<div class="idCardBody">'+portrait+details+'</div>'+footer;
+   $('cardPreview').className='idCardPreview idDesign-'+design;
   }
-  $('cardStudent').onchange=paint;
+  $('cardStudent').onchange=fillStudent;
+  $('cardDesign').onchange=paint;
+  ['cardName','cardNumber','cardClass','cardYear'].forEach(id=>$(id).oninput=paint);
   $('cardTheme').onchange=()=>{const p=palettes[Number($('cardTheme').value)];$('cardPrimary').value=p[1];$('cardSecondary').value=p[2];paint();};
   $('cardPrimary').oninput=paint;$('cardSecondary').oninput=paint;
   $('cardPhoto').onchange=()=>{
@@ -235,13 +251,13 @@ async function render(page){
   };
   $('cardResetPhoto').onclick=()=>{photo='';$('cardPhoto').value='';paint();};
   $('cardPrint').onclick=()=>{
-   const markup=$('cardPreview').outerHTML;
+   paint();const markup=$('cardPreview').outerHTML;
    const win=window.open('','_blank');if(!win){$('cardMessage').textContent='Allow pop-ups in Chrome to print the card.';return;}
-   const styles=document.querySelector('style')?.textContent||'';
+   const styles=Array.from(document.querySelectorAll('style')).map(x=>x.textContent).join('\\n');
    win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Student ID Card</title><style>'+styles+'@page{size:85.6mm 54mm;margin:0}html,body{margin:0!important;padding:0!important;background:white!important}.idCardPreview{width:85.6mm!important;height:54mm!important;max-width:none!important;margin:0!important;box-shadow:none!important;border-radius:0!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}body>*:not(.idCardPreview){display:none!important}</style></head><body>'+markup+'</body></html>');
    win.document.close();win.onload=()=>{win.focus();win.print();};
   };
-  paint();return;
+  fillStudent();return;
  }
  if(['Student Billing','Payments & Receipts','Fee Arrears'].includes(page)){
   root.innerHTML='<div class="panel"><h2>School finance · Live database</h2><p>Loading…</p></div>';
