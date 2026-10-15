@@ -71,7 +71,7 @@ const fields={'Schools Management':['School name','School code','Phone','Email']
 let data={};try{data=JSON.parse(localStorage.getItem('pb_platform_demo_v1')||'{}')}catch(e){}
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const mainModules=['Dashboard','Students','Staff','Attendance','Student Billing','Payments & Receipts','Reports'];
+const mainModules=['Dashboard','Students','Staff','Attendance','Timetable','Student Billing','Payments & Receipts','Reports'];
 const moreModules=modules.filter(m=>!mainModules.includes(m));
 $('nav').innerHTML=mainModules.map((m,i)=>`<button data-page="${esc(m)}" class="${i===0?'active':''}">${esc(moduleLabel(m))}</button>`).join('')+`<button id="moreFeaturesToggle" type="button" aria-expanded="false">☰ More Features ▾</button><div id="moreFeaturesList" hidden>${moreModules.map(m=>`<button data-page="${esc(m)}">${esc(moduleLabel(m))}</button>`).join('')}</div>`;
 $('moreFeaturesToggle').onclick=()=>{const list=$('moreFeaturesList');list.hidden=!list.hidden;$('moreFeaturesToggle').setAttribute('aria-expanded',String(!list.hidden));};
