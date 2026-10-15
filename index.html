@@ -21,6 +21,12 @@ button{cursor:pointer}.primary{background:var(--pink);color:#fff;border:0;border
 /* Collapsible vertical management menu */
 .sideHeading{font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--muted);padding:12px 10px}.menuToggle{display:none!important}.layout{min-width:0}.layout main{min-width:0}
 @media(max-width:800px){.layout{display:block;min-height:calc(100vh - 60px)}.menuToggle{display:inline-flex!important;margin-bottom:12px;align-items:center;gap:8px}#sideMenu{display:none;position:fixed;z-index:1001;top:0;left:0;bottom:0;width:min(82vw,300px);box-shadow:8px 0 40px #142b4a33;overflow-y:auto;border-right:1px solid var(--line)}.layout.menuOpen #sideMenu{display:block}#sideMenu nav{display:block;overflow:visible}#sideMenu nav button{display:block;width:100%;white-space:normal;text-align:left}#menuBackdrop{display:none}.layout.menuOpen~#menuBackdrop{display:block;position:fixed;inset:0;background:#142b4a88;z-index:1000}}
+
+/* Printable CR80 student identification card */
+.idCardPreview{width:100%;max-width:540px;aspect-ratio:85.6/54;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 12px 30px #142b4a20;border:1px solid #e6eaf0;margin:18px auto;font-family:system-ui,Arial,sans-serif;display:flex;flex-direction:column}
+.idCardHead{color:white;display:flex;align-items:center;gap:14px;padding:5% 6%;min-height:29%}.idCardHead strong{display:block;font-size:clamp(14px,3.3vw,22px);letter-spacing:.055em}.idCardHead small{display:block;font-size:clamp(8px,1.7vw,12px);letter-spacing:.13em}.idCardMark{width:45px;height:45px;flex:none;border-radius:12px;border:2px solid #ffffffa8;display:grid;place-items:center;font-weight:900;font-size:15px;background:#ffffff2b}
+.idCardBody{display:flex;align-items:center;gap:5%;padding:4% 6%;flex:1;min-height:0}.idCardPortrait{width:29%;height:100%;min-height:90px;max-height:140px;flex:none;border-radius:9px;background:#f1f3f8;border:2px solid #e7eaf0;overflow:hidden;display:grid;place-items:center}.idCardPortrait img{width:100%;height:100%;object-fit:cover}.idSilhouette{font-size:45px;opacity:.55}.idCardDetails{min-width:0}.idCardTag{font-weight:900;letter-spacing:.08em;font-size:clamp(8px,1.65vw,11px)}.idCardName{font-weight:850;color:#172e50;font-size:clamp(16px,3.5vw,25px);line-height:1.16;margin:10px 0;overflow-wrap:anywhere}.idCardNumber{font-size:clamp(10px,2vw,13px);color:#536074}.idCardFoot{color:#fff;display:flex;justify-content:space-between;gap:8px;padding:2.5% 6%;font-size:clamp(8px,1.6vw,11px);font-weight:800;letter-spacing:.06em}
+@media(max-width:420px){.idCardMark{width:33px;height:33px;font-size:11px}.idCardPortrait{min-height:65px}.idCardHead{gap:8px}.idCardName{margin:5px 0}}
 </style>
 </head>
 <body>
@@ -202,13 +208,40 @@ async function render(page){
   $('staffSearch').oninput=e=>{const q=e.target.value.toLowerCase();root.querySelectorAll('tbody tr').forEach(tr=>tr.hidden=!tr.textContent.toLowerCase().includes(q));};
   return;
  }
+
  if(page==='Student ID Cards'){
-  if(!supabaseClient){root.innerHTML='<div class="panel">Database unavailable.</div>';return;}
-  root.innerHTML='<div class="panel"><h2>Student ID Cards</h2><p class="sub">Loading live student numbers…</p></div>';
-  const {data:students,error}=await supabaseClient.from('students').select('student_number,first_name,last_name').eq('school_id',SCHOOL_ID).order('student_number',{ascending:true}).limit(200);
-  if(error){root.innerHTML='<div class="panel"><h2>Student ID Cards</h2><p class="sub">'+esc(error.message)+'</p></div>';return;}
-  root.innerHTML='<div class="panel"><h2>Student ID Cards · Live records</h2><p class="sub">Preview only. Class, photographs and official printing will be added later.</p><div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">'+(students||[]).map(s=>'<div class="card" style="border-top:5px solid var(--pink)"><b>PINKS & BLUES</b><p class="sub">INTERNATIONAL SCHOOL</p><h2>'+esc(s.first_name)+' '+esc(s.last_name)+'</h2><p><b>'+esc(s.student_number)+'</b></p></div>').join('')+'</div></div>';
-  return;
+  root.innerHTML='<div class="panel"><h2>Student ID card designer</h2><p>Loading student directory…</p></div>';
+  const {data:students,error}=await supabaseClient.from('students').select('student_id,student_number,first_name,last_name').eq('school_id',SCHOOL_ID).order('student_number',{ascending:true}).limit(500);
+  if(error){root.innerHTML='<div class="panel"><h2>Student ID card designer</h2><p>'+esc(error.message)+'</p></div>';return;}
+  const list=students||[];
+  if(!list.length){root.innerHTML='<div class="panel"><h2>Student ID card designer</h2><p>Add a test student first to preview a card.</p></div>';return;}
+  const palettes=[['Classic pink & blue','#dc548b','#2466ac'],['Royal blue','#234b95','#112d58'],['Emerald','#178568','#12524c'],['Purple','#7854ac','#40327b'],['Gold & navy','#d49b34','#172e50'],['Coral','#e36b60','#9b3e64']];
+  root.innerHTML='<div class="panel"><h2>Student ID card designer</h2><p class="sub">Choose a student, select a colour theme, add a photograph for this preview, and print a school ID card. Photographs selected here stay on this device and are not uploaded to the school database.</p><div class="formrow"><label>Student<select id="cardStudent">'+list.map(s=>'<option value="'+esc(s.student_id)+'">'+esc(s.first_name+' '+s.last_name+' · '+s.student_number)+'</option>').join('')+'</select></label><label>Colour theme<select id="cardTheme">'+palettes.map((p,i)=>'<option value="'+i+'">'+esc(p[0])+'</option>').join('')+'</select></label><label>Primary colour<input id="cardPrimary" type="color" value="#dc548b"></label><label>Secondary colour<input id="cardSecondary" type="color" value="#2466ac"></label><label>Student photo (optional)<input id="cardPhoto" type="file" accept="image/png,image/jpeg,image/webp"></label></div><div class="actions"><button id="cardPrint" class="primary" type="button">Print ID card</button><button id="cardResetPhoto" class="secondary" type="button">Remove photo</button></div><p id="cardMessage" role="status"></p><div id="cardPreview" class="idCardPreview" aria-label="Student ID card preview"></div></div>';
+  let photo='';
+  const selected=()=>list.find(s=>s.student_id===$('cardStudent').value)||list[0];
+  function paint(){
+   const s=selected(),primary=$('cardPrimary').value,secondary=$('cardSecondary').value;
+   const full=esc(s.first_name+' '+s.last_name),num=esc(s.student_number||'Not assigned');
+   const imagePart=photo?'<img alt="Student portrait" src="'+photo+'">':'<span class="idSilhouette" aria-label="No photograph">👤</span>';
+   $('cardPreview').innerHTML='<div class="idCardHead" style="background:linear-gradient(120deg,'+primary+','+secondary+')"><div class="idCardMark">P&B</div><div><strong>PINKS & BLUES</strong><small>INTERNATIONAL SCHOOL</small></div></div><div class="idCardBody"><div class="idCardPortrait">'+imagePart+'</div><div class="idCardDetails"><div class="idCardTag" style="color:'+secondary+'">STUDENT IDENTIFICATION</div><div class="idCardName">'+full+'</div><div class="idCardNumber">ID NO. <strong>'+num+'</strong></div></div></div><div class="idCardFoot" style="background:'+secondary+'"><span>RISING BEYOND LIMITS</span><span>STUDENT CARD</span></div>';
+  }
+  $('cardStudent').onchange=paint;
+  $('cardTheme').onchange=()=>{const p=palettes[Number($('cardTheme').value)];$('cardPrimary').value=p[1];$('cardSecondary').value=p[2];paint();};
+  $('cardPrimary').oninput=paint;$('cardSecondary').oninput=paint;
+  $('cardPhoto').onchange=()=>{
+   const file=$('cardPhoto').files?.[0];if(!file)return;
+   if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>3*1024*1024){$('cardMessage').textContent='Use a PNG, JPEG or WebP photo under 3 MB.';return;}
+   const reader=new FileReader();reader.onload=()=>{photo=String(reader.result);$('cardMessage').textContent='Photo loaded for preview only.';paint();};reader.readAsDataURL(file);
+  };
+  $('cardResetPhoto').onclick=()=>{photo='';$('cardPhoto').value='';paint();};
+  $('cardPrint').onclick=()=>{
+   const markup=$('cardPreview').outerHTML;
+   const win=window.open('','_blank');if(!win){$('cardMessage').textContent='Allow pop-ups in Chrome to print the card.';return;}
+   const styles=document.querySelector('style')?.textContent||'';
+   win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Student ID Card</title><style>'+styles+'@page{size:85.6mm 54mm;margin:0}html,body{margin:0!important;padding:0!important;background:white!important}.idCardPreview{width:85.6mm!important;height:54mm!important;max-width:none!important;margin:0!important;box-shadow:none!important;border-radius:0!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}body>*:not(.idCardPreview){display:none!important}</style></head><body>'+markup+'</body></html>');
+   win.document.close();win.onload=()=>{win.focus();win.print();};
+  };
+  paint();return;
  }
  if(['Student Billing','Payments & Receipts','Fee Arrears'].includes(page)){
   root.innerHTML='<div class="panel"><h2>School finance · Live database</h2><p>Loading…</p></div>';
